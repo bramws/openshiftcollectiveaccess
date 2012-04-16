@@ -63,13 +63,13 @@ define("__CA_APP_DISPLAY_NAME__", "CollectiveAccess Openshift 1.1");
 define("__CA_DB_HOST__", 'localhost');
 
 # Database login user name
-define("__CA_DB_USER__", 'my_database_user');
+define("__CA_DB_USER__", 'admin');
 
 # Database login password
 define("__CA_DB_PASSWORD__", 'my_database_password');
 
 # The name of your CollectiveAccess database
-define("__CA_DB_DATABASE__", 'name_of_my_database');
+define("__CA_DB_DATABASE__", 'collecitiveaccess');
 
 # Only MySQL databases are currently supported so leave this set to 'mysql'!
 define("__CA_DB_TYPE__", 'mysql');
