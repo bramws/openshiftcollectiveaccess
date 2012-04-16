@@ -1,58 +1,27 @@
-Feel free to change or remove this file, it is informational only.
+CollectiveAccess Openshift 1.1
+==============================
 
-Repo layout
-===========
-php/ - Externally exposed php code goes here
-libs/ - Additional libraries
-misc/ - For not-externally exposed php code
-../data - For persistent data (full path in environment var: OPENSHIFT_DATA_DIR)
-deplist.txt - list of pears to install
-.openshift/action_hooks/pre_build - Script that gets run every git push before the build
-.openshift/action_hooks/build - Script that gets run every git push as part of the build process (on the CI system if available)
-.openshift/action_hooks/deploy - Script that gets run every git push after build but before the app is restarted
-.openshift/action_hooks/post_deploy - Script that gets run every git push after the app is restarted
+Create a free Red Hat Openshift account: https://openshift.redhat.com    
 
+Getting started: https://openshift.redhat.com/app/getting_started
 
-Notes about layout
-==================
-Please leave php, libs and data directories but feel free to create additional
-directories if needed.
+CollectiveAccess installation: http://wiki.collectiveaccess.org/index.php?title=Installation_%28Providence%29
 
-Note: Every time you push, everything in your remote repo dir gets recreated
-please store long term items (like an sqlite database) in ../data which will
-persist between pushes of your repo.
+INSTALLATION
+============
 
-
-Environment Variables
-=====================
-
-OpenShift Express provides several environment variables to reference for ease
-of use.  The following list are some common variables but far from exhaustive:
-
-    $_ENV['OPENSHIFT_GEAR_NAME']  - Application name
-    $_ENV['OPENSHIFT_GEAR_DIR']   - Application dir
-    $_ENV['OPENSHIFT_DATA_DIR']  - For persistent storage (between pushes)
-    $_ENV['OPENSHIFT_TMP_DIR']   - Temp storage (unmodified files deleted after 10 days)
-
-When embedding a database using 'rhc app cartridge add', you can reference environment
-variables for username, host and password:
-
-    $_ENV['OPENSHIFT_DB_HOST']      - DB host
-    $_ENV['OPENSHIFT_DB_PORT']      - DB Port
-    $_ENV['OPENSHIFT_DB_USERNAME']  - DB Username
-    $_ENV['OPENSHIFT_DB_PASSWORD']  - DB Password
-
-To get a full list of environment variables, simply add a line in your
-.openshift/action_hooks/build script that says "export" and push.
-
-deplist.txt
-===========
-
-A list of pears to install, line by line on the server.  This will happen when
-the user git pushes.
-
-
-Additional information
-======================
-
-Link to additional information will be here, when we have it :)
+1) rhc-create-domain -n domain -l email
+2) rhc-create-app -a collectiveaccess -t php-5.3 
+3) git clone git@github.com:bramw/openshiftcollectiveaccess.git
+4) rhc-ctl-app -a collectiveaccess -e add-mysql-5.1 -l email  
+5) cd collectiveaccess/php and edit setup.php with database configuration from step 4 and change timezone and admin e-mail
+	define("__CA_DB_HOST__", "DB hosT");
+	define("__CA_DB_USER__", "admin");
+	define("__CA_DB_PASSWORD__", "DB Password");
+	define("__CA_DB_DATABASE__", "collectiveaccess");
+	date_default_timezone_set("Europe/Brussels");
+	define("__CA_ADMIN_EMAIL__", "email"); 
+6) git add setup.php
+7) git commit -m "setup.php"
+8) git push
+9) Finish CollectiveAccess installation on http://collectiveaccess-domain.rhcloud.com (change domain in domain from step 1)
