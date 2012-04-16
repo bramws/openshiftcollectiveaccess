@@ -11,11 +11,11 @@ INSTALLATION
 ============
 
 1) rhc-create-domain -n domain -l email
-2) rhc-create-app -a collectiveaccess -t php-5.3 
+2) rhc-create-app -a collectiveaccess -t php-5.3 -l email 
 3) git clone git@github.com:bramw/openshiftcollectiveaccess.git
 4) rhc-ctl-app -a collectiveaccess -e add-mysql-5.1 -l email  
 5) cd collectiveaccess/php and edit setup.php with database configuration from step 4 and change timezone and admin e-mail
-	define("__CA_DB_HOST__", "DB hosT");
+	define("__CA_DB_HOST__", "DB host");
 	define("__CA_DB_USER__", "admin");
 	define("__CA_DB_PASSWORD__", "DB Password");
 	define("__CA_DB_DATABASE__", "collectiveaccess");
