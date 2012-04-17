@@ -1,4 +1,4 @@
-#!/usr/local/bin/php
+#!/usr/bin/php
 <?php
 	ini_set('memory_limit', '4000m');
 	set_time_limit(24 * 60 * 60 * 7); /* maximum indexing time: 7 days :-) */

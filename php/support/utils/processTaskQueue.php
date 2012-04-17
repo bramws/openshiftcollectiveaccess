@@ -1,4 +1,4 @@
-#!/usr/local/bin/php
+#!/usr/bin/php
 <?php
 	define('__CollectiveAccess_IS_PROCESSING TASKQUEUE__', 1);
 	$vs_basepath = dirname($_SERVER['SCRIPT_FILENAME']);
