@@ -11,3 +11,4 @@ ln -sf $OPENSHIFT_DATA_DIR/media $OPENSHIFT_REPO_DIR/php/media
 if [ ! -d $OPENSHIFT_DATA_DIR/uploads ]; then
     mkdir $OPENSHIFT_DATA_DIR/uploads
 fi
+ln -sf $OPENSHIFT_REPO_DIR/php/setup.php $OPENSHIFT_REPO_DIR/php/support/utils/setup.php
