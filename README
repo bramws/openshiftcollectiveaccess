@@ -14,17 +14,17 @@ INSTALLATION
 2) rhc-create-app -a collectiveaccess -t php-5.3 -l email 
 3) cd collectiveaccess
 4) git remote add upstream -m master git@github.com:bramw/openshiftcollectiveaccess.git 
-   git pull -s recursive -X theirs upstream master
-5) rhc-ctl-app -a collectiveaccess -e add-cron-1.4 -l email 
-6) rhc-ctl-app -a collectiveaccess -e add-mysql-5.1 -l email  
-7) cd php and edit setup.php with database configuration from step 6 and change timezone and admin e-mail
+5) git pull -s recursive -X theirs upstream master
+6) rhc-ctl-app -a collectiveaccess -e add-cron-1.4 -l email 
+7) rhc-ctl-app -a collectiveaccess -e add-mysql-5.1 -l email  
+8) cd php and edit setup.php with database configuration from step 6 and change timezone and admin e-mail
 	define("__CA_DB_HOST__", "DB host");
 	define("__CA_DB_USER__", "admin");
 	define("__CA_DB_PASSWORD__", "DB Password");
 	define("__CA_DB_DATABASE__", "collectiveaccess");
 	date_default_timezone_set("Europe/Brussels");
 	define("__CA_ADMIN_EMAIL__", "email"); 
-8) git add setup.php
-9) git commit -m "setup.php"
-10) git push
-11) Finish CollectiveAccess installation on http://collectiveaccess-domain.rhcloud.com/install (change domain in domain from step 1)
+9) git add setup.php
+10) git commit -m "setup.php"
+11) git push
+1222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222) Finish CollectiveAccess installation on http://collectiveaccess-domain.rhcloud.com/install (change domain in domain from step 1)
