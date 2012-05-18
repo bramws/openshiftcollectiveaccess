@@ -18,7 +18,7 @@ INSTALLATION
 6) git push
 7) rhc-ctl-app -a collectiveaccess -e add-cron-1.4 -l email 
 8) rhc-ctl-app -a collectiveaccess -e add-mysql-5.1 -l email  
-8) cd php and edit setup.php with database configuration from step 8 and the help file: http://collectiveaccess-domain.rhcloud.com/help.php (change domain in domain from step 1) 
+9) cd php and edit setup.php with database configuration from step 8 and the help file: http://collectiveaccess-domain.rhcloud.com/help.php (change domain in domain from step 1) 
         define("__CA_BASE_DIR__", "/var/lib/stickshift/9443bfadl88046c8ab0d7a182f4cc766/collectiveaccess/repo/php");
         define("__CA_SITE_HOSTNAME__", "collectveaccess-domain.rhcloud.com");
 	define("__CA_DB_HOST__", "DB host");
@@ -27,7 +27,7 @@ INSTALLATION
 	define("__CA_DB_DATABASE__", "collectiveaccess");
 	date_default_timezone_set("Europe/Brussels");
 	define("__CA_ADMIN_EMAIL__", "email"); 
-9) git add setup.php
+10) git add setup.php
 10) git commit -m "setup.php"
-11) git push
-12) Finish CollectiveAccess installation on http://collectiveaccess-domain.rhcloud.com/install (change domain in domain from step 1)
+12) git push
+13) Finish CollectiveAccess installation on http://collectiveaccess-domain.rhcloud.com/install (change domain in domain from step 1)
