@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -64,7 +64,7 @@ BaseModel::$s_ca_models_definitions['ca_search_form_labels'] = array(
 		),
 		'name' => array(
 				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
-				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 2,
+				'DISPLAY_WIDTH' => 100, 'DISPLAY_HEIGHT' => 3,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Name'), 'DESCRIPTION' => _t('Name of search form'),
@@ -77,6 +77,14 @@ BaseModel::$s_ca_models_definitions['ca_search_form_labels'] = array(
 				'DEFAULT' => '',
 				'LABEL' => 'Sort order', 'DESCRIPTION' => 'Sortable version of name value',
 				'BOUNDS_LENGTH' => array(0,255)
+		),
+		'description' => array(
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
+				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 15,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				'LABEL' => _t('Description'), 'DESCRIPTION' => _t('Description of display'),
+				'BOUNDS_LENGTH' => array(0,65535)
 		),
 		'source_info' => array(
 				'FIELD_TYPE' => FT_VARS, 'DISPLAY_TYPE' => DT_OMIT, 

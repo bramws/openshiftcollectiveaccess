@@ -6,7 +6,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -47,6 +47,7 @@ var caUI = caUI || {};
 			mobileSafariDeviceWidth:  "device-width",
 			mobileSafariDeviceHeight:  "device-height",
 			mobileSafariUserScaleable: false,
+			onCloseCallback: null,
 			
 			isChanging: false
 		}, options);
@@ -55,13 +56,17 @@ var caUI = caUI || {};
 		// --------------------------------------------------------------------------------
 		// Define methods
 		// --------------------------------------------------------------------------------
-		that.showPanel = function(url) {
+		that.showPanel = function(url, onCloseCallback) {
 			that.setZoom(that.allowMobileSafariZooming);
 			that.isChanging = true;
 			jQuery('#' + that.panelID).fadeIn(that.panelTransitionSpeed, function() { that.isChanging = false; });
 			
 			if (that.useExpose) { 
 				jQuery('#' + that.panelID).expose({api: true, color: that.exposeBackgroundColor , opacity: that.exposeBackgroundOpacity}).load(); 
+			}
+			
+			if (onCloseCallback) {
+				that.onCloseCallback = onCloseCallback;
 			}
 			
 			// Apply close behavior to selected elements
@@ -73,6 +78,10 @@ var caUI = caUI || {};
 		}
 		
 		that.hidePanel = function() {
+			if (that.onCloseCallback) {
+				that.onCloseCallback();
+				that.onCloseCallback = null;
+			}
 			that.setZoom(false);
 			that.isChanging = true;
 			jQuery('#' + that.panelID).fadeOut(that.panelTransitionSpeed, function() { that.isChanging = false; });

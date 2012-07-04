@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -39,6 +39,8 @@ require_once(__CA_MODELS_DIR__."/ca_object_representation_labels.php");
 require_once(__CA_MODELS_DIR__."/ca_representation_annotations.php");
 require_once(__CA_MODELS_DIR__."/ca_representation_annotation_labels.php");
 require_once(__CA_MODELS_DIR__."/ca_object_representation_multifiles.php");
+require_once(__CA_MODELS_DIR__."/ca_commerce_order_items.php");
+require_once(__CA_APP_DIR__."/helpers/mediaPluginHelpers.php");
 
 
 BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
@@ -94,13 +96,19 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				
 				"MEDIA_PROCESSING_SETTING" => 'ca_object_representations',
 				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
 				'LABEL' => _t('Media to upload'), 'DESCRIPTION' => _t('Use this control to select media from your computer to upload.')
 		),
 		'media_metadata' => array(
-				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_OMIT, 
+				'FIELD_TYPE' => FT_VARS, 'DISPLAY_TYPE' => DT_OMIT, 
 				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 15,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'DONT_PROCESS_DURING_INSERT_UPDATE' => true,
+				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
 				'LABEL' => _t('Media metadata'), 'DESCRIPTION' => _t('Media metadata')
 		),
 		'media_content' => array(
@@ -108,6 +116,10 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 15,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'DONT_PROCESS_DURING_INSERT_UPDATE' => true,
+				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
 				'LABEL' => _t('Media content'), 'DESCRIPTION' => _t('Media content')
 		),
 		'md5' => array(
@@ -115,6 +127,9 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
 				'LABEL' => _t('MD5 hash'), 'DESCRIPTION' => _t('MD5-generated "fingerprint" for this media.'),
 				'BOUNDS_LENGTH' => array(0,32)
 		),
@@ -123,14 +138,29 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				'DISPLAY_WIDTH' => 90, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
 				'LABEL' => _t('Original filename'), 'DESCRIPTION' => _t('The filename of the media at the time of upload.'),
 				'BOUNDS_LENGTH' => array(0,1024)
+		),
+		'mimetype' => array(
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_OMIT, 
+				'DISPLAY_WIDTH' => 90, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => true, 
+				'DEFAULT' => '',
+				
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				
+				'LABEL' => _t('Original MIME type'), 'DESCRIPTION' => _t('The MIME type of the media at the time of upload.'),
+				'BOUNDS_LENGTH' => array(0,255)
 		),
 		'access' => array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_SELECT, 
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Not accessible to public') => 0,
 					_t('Accessible to public') => 1
@@ -143,6 +173,7 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -152,6 +183,14 @@ BaseModel::$s_ca_models_definitions['ca_object_representations'] = array(
 				),
 				'LIST' => 'workflow_statuses',
 				'LABEL' => _t('Status'), 'DESCRIPTION' => _t('Indicates the current state of the representation.')
+		),
+		'deleted' => array(
+				'FIELD_TYPE' => FT_BIT, 'DISPLAY_TYPE' => DT_OMIT, 
+				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => 0,
+				'LABEL' => _t('Is deleted?'), 'DESCRIPTION' => _t('Indicates if the object is deleted or not.'),
+				'BOUNDS_VALUE' => array(0,1)
 		),
 		'rank' => array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_FIELD, 
@@ -296,10 +335,15 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
 		$this->BUNDLES['ca_occurrences'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related occurrences'));
 		$this->BUNDLES['ca_representation_annotations'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related annotations'));
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));	
+		$this->BUNDLES['ca_loans'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related loans'));
+		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
+		$this->BUNDLES['ca_object_lots'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related lot'));
+		
 		$this->BUNDLES['ca_object_representations_media_display'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Media and preview images'));
 	}
 	# ------------------------------------------------------
-	public function insert() {
+	public function insert($pa_options=null) {
 		// reject if media is empty
 		if ($this->mediaIsEmpty()) {
 			$this->postError(2710, _t('No media was specified'), 'ca_object_representations->insert()');
@@ -310,8 +354,12 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
 		if ($vn_rc = parent::insert()) {
 			$va_media_info = $this->getMediaInfo('media', 'original');
 			$this->set('md5', $va_media_info['MD5']);
+			$this->set('mimetype', $va_media_info['MIMETYPE']);
 			$va_media_info = $this->getMediaInfo('media');
 			$this->set('original_filename', $va_media_info['ORIGINAL_FILENAME']);
+			
+			$va_metadata = $this->get('media_metadata', array('binary' => true));
+			caExtractEmbeddedMetadata($this, $va_metadata, $this->get('locale_id'));
 			
 			$vn_rc = parent::update($pa_options);
 		}
@@ -320,11 +368,18 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
 	}
 	# ------------------------------------------------------
 	public function update($pa_options=null) {
+		$vb_media_has_changed = $this->changed('media');
 		if ($vn_rc = parent::update($pa_options)) {
 			$va_media_info = $this->getMediaInfo('media', 'original');
 			$this->set('md5', $va_media_info['MD5']);
+			$this->set('mimetype', $va_media_info['MIMETYPE']);
 			$va_media_info = $this->getMediaInfo('media');
 			$this->set('original_filename', $va_media_info['ORIGINAL_FILENAME']);
+			
+			if ($vb_media_has_changed) {
+				$va_metadata = $this->get('media_metadata', array('binary' => true));
+				caExtractEmbeddedMetadata($this, $va_metadata, $this->get('locale_id'));
+			}
 			
 			$vn_rc = parent::update($pa_options);
 		}
@@ -945,6 +1000,7 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
  				$va_info = $qr_res->getMediaInfo('media', $vs_version);
  				$va_files[$vn_multifile_id][$vs_version.'_width'] = $va_info['WIDTH'];
  				$va_files[$vn_multifile_id][$vs_version.'_height'] = $va_info['HEIGHT'];
+ 				$va_files[$vn_multifile_id][$vs_version.'_mimetype'] = $va_info['MIMETYPE'];
  			}
  		}
  		return $va_files;
@@ -990,6 +1046,12 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
  	# ------------------------------------------------------
  	/**
  	 * Matching method to ca_objects::getRepresentations(), except this one only returns a single representation - the currently loaded one
+ 	 *
+ 	 * @param array $pa_versions
+ 	 * @param array $pa_version_sizes
+ 	 * @param array $pa_options
+ 	 *
+ 	 * @return array
  	 */
  	public function getRepresentations($pa_versions=null, $pa_version_sizes=null, $pa_options=null) {
  		if (!($vn_object_id = $this->getPrimaryKey())) { return null; }
@@ -1006,7 +1068,7 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
  			FROM ca_object_representations caor
  			LEFT JOIN ca_locales AS l ON caor.locale_id = l.locale_id
  			WHERE
- 				caor.representation_id = ? 
+ 				caor.representation_id = ?  AND caor.deleted = 0
  				{$vs_is_primary_sql}
  				{$vs_access_sql}
  			ORDER BY
@@ -1086,27 +1148,114 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
  		}
  		return $va_reps;
  	}
+ 	# ------------------------------------------------------------------
+	/**
+	 * Fetches information about media in a list of representations
+	 * 
+	 * @param array $pa_ids indexed array of representation_id values to fetch media for
+	 * @param array $pa_versions List of versions to fetch information for
+	 * @param array $pa_options An array of options:
+	 *		checkAccess = Array of access values to filter on
+	 * @return array List of media, key'ed by representation_id
+	 */
+	public function getRepresentationMediaForIDs($pa_ids, $pa_versions, $pa_options = null) {
+		if (!is_array($pa_ids) || !sizeof($pa_ids)) { return array(); }
+		if (!is_array($pa_options)) { $pa_options = array(); }
+		$va_access_values = $pa_options["checkAccess"];
+		if (isset($va_access_values) && is_array($va_access_values) && sizeof($va_access_values)) {
+			$vs_access_where = ' AND orep.access IN ('.join(',', $va_access_values).')';
+		}
+		$o_db = $this->getDb();
+		
+		$qr_res = $o_db->query("
+			SELECT orep.representation_id, orep.media
+			FROM ca_object_representations orep
+			WHERE
+				(orep.representation_id IN (".join(',', $pa_ids).")) AND orep.deleted = 0 {$vs_access_where}
+		");
+		
+		$va_media = array();
+		while($qr_res->nextRow()) {
+			$va_media_tags = array();
+			foreach($pa_versions as $vs_version) {
+				$va_media_tags['tags'][$vs_version] = $qr_res->getMediaTag('ca_object_representations.media', $vs_version);
+				$va_media_tags['info'][$vs_version] = $qr_res->getMediaInfo('ca_object_representations.media', $vs_version);
+				$va_media_tags['urls'][$vs_version] = $qr_res->getMediaUrl('ca_object_representations.media', $vs_version);
+			}
+			$va_media[$qr_res->get('representation_id')] = $va_media_tags;
+		}
+		return $va_media;
+	}
+	# ------------------------------------------------------------------
+	/**
+	 * Checks if currently loaded representation is of specified media class. Valid media classes are 'image', 'audio', 'video' and 'document'
+	 * 
+	 * @param string The media class to check for
+	 * @return True if representation is of specified class, false if not
+	 */
+	public function representationIsOfClass($ps_class) {
+ 		if (!($vs_mimetypes_regex = caGetMimetypesForClass($ps_class, array('returnAsRegex' => true)))) { return array(); }
+		
+		return (preg_match("!{$vs_mimetypes_regex}!", $this->get('mimetype'))) ? true  : false;
+	}
+	# ------------------------------------------------------------------
+	/**
+	 * Checks if currently loaded representation has specified MIME type
+	 * 
+	 * @param string The MIME type to check for
+	 * @return bool True if representation has MIME type, false if not
+	 */
+	public function representationIsWithMimetype($ps_mimetype) {
+		return ($this->get('mimetype') == $ps_mimetype) ? true : false;
+	}
  	# ------------------------------------------------------
  	/**
  	 * 
+ 	 *
+ 	 * @param RequestHTTP $po_request
+ 	 * @param array $pa_options
+ 	 * @param array $pa_additional_display_options
+ 	 * @return string HTML output
  	 */
- 	public function getRepresentationViewerHTMLBundle($po_request, $pa_options=null) {
+ 	public function getRepresentationViewerHTMLBundle($po_request, $pa_options=null, $pa_additional_display_options=null) {
  		$va_access_values = (isset($pa_options['access']) && is_array($pa_options['access'])) ? $pa_options['access'] : array();	
  		$vs_display_type = (isset($pa_options['display']) && $pa_options['display']) ? $pa_options['display'] : 'media_overlay';	
  		$vs_container_dom_id = (isset($pa_options['containerID']) && $pa_options['containerID']) ? $pa_options['containerID'] : null;	
  		$vn_object_id = (isset($pa_options['object_id']) && $pa_options['object_id']) ? $pa_options['object_id'] : null;
+ 		$vn_item_id = (isset($pa_options['item_id']) && $pa_options['item_id']) ? $pa_options['item_id'] : null;
+ 		$vn_order_item_id = (isset($pa_options['order_item_id']) && $pa_options['order_item_id']) ? $pa_options['order_item_id'] : null;
+ 		$vb_only_show_reps_in_order = (isset($pa_options['onlyShowRepresentationsInOrder']) && $pa_options['onlyShowRepresentationsInOrder']) ? $pa_options['onlyShowRepresentationsInOrder'] : null;
  		
  		$t_object = new ca_objects($vn_object_id);
+ 		//if (!$t_object->getPrimaryKey()) { return false; }
+ 		
+ 		if(!$this->getPrimaryKey()) {
+ 			$this->load($t_object->getPrimaryRepresentationID(array('checkAccess' => $va_access_values)));
+ 		}
+ 		
 		$o_view = new View($po_request, $po_request->getViewsDirectoryPath().'/bundles/');
+		
+		$t_set_item = new ca_set_items();
+		if ($vn_item_id) { $t_set_item->load($vn_item_id); }
+		
+		$t_order_item = new ca_commerce_order_items();
+		if ($vn_order_item_id) { $t_order_item->load($vn_order_item_id); }
 		
 		$o_view->setVar('containerID', $vs_container_dom_id);
 		
+		$o_view->setVar('t_object_representation', $this);
  		if (($vn_representation_id = $this->getPrimaryKey()) && ((!sizeof($va_access_values) || in_array($this->get('access'), $va_access_values)))) { 		// check rep access
 			$va_rep_display_info = caGetMediaDisplayInfo($vs_display_type, $this->getMediaInfo('media', 'INPUT', 'MIMETYPE'));
 			$va_rep_display_info['poster_frame_url'] = $this->getMediaUrl('media', $va_rep_display_info['poster_frame_version']);
-
+			
 			$o_view->setVar('num_multifiles', $this->numFiles());
-						
+				
+ 			if (isset($pa_options['use_book_viewer'])) {
+ 				$va_rep_display_info['use_book_viewer'] = (bool)$pa_options['use_book_viewer'];
+ 			}		
+			$o_view->setVar('display_type', $vs_display_type);
+			
+			if (is_array($pa_additional_display_options)) { $va_rep_display_info = array_merge($va_rep_display_info, $pa_additional_display_options); }
 			$o_view->setVar('display_options', $va_rep_display_info);
 			$o_view->setVar('representation_id', $pn_representation_id);
 			$o_view->setVar('t_object_representation', $this);
@@ -1143,6 +1292,9 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
 			$o_view->setVar('version_info', $this->getMediaInfo('media', $ps_version));
 			
  			$o_view->setVar('t_object', $t_object);
+ 			$o_view->setVar('t_set_item', $t_set_item);
+ 			$o_view->setVar('t_order_item', $t_order_item);
+ 			$o_view->setVar('only_show_reps_in_order', $vb_only_show_reps_in_order);
 		}
 		return $o_view->render('representation_viewer_html.php');
  	}
@@ -1198,6 +1350,23 @@ class ca_object_representations extends BundlableLabelableBaseModelWithAttribute
 			}
 		}
 		return true;
+	}
+	# ------------------------------------------------------
+	/** 
+	 * Check it a file already exists in the database as a representation
+	 *
+	 * @param string $ps_filepath The full path to the file
+	 * @return mixed ca_object_representations instance representing the first representation that contains the file, if representation exists with this file, false if the file does not yet exist
+	 */
+	static function mediaExists($ps_filepath) {
+		if (!file_exists($ps_filepath)) { return null; }
+		$vs_md5 = md5_file($ps_filepath);
+		$t_rep = new ca_object_representations();
+		if ($t_rep->load(array('md5' => $vs_md5))) { 
+			return $t_rep;
+		}
+		
+		return false;
 	}
 	# ------------------------------------------------------
 }

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -519,6 +519,7 @@ class Installer {
 					$t_restriction = new ca_metadata_type_restrictions();
 					$t_restriction->setMode(ACCESS_WRITE);
 					$t_restriction->set('table_num', $vn_table_num);
+					$t_restriction->set('include_subtypes', (bool)$vo_restriction->includeSubtypes ? 1 : 0);
 					$t_restriction->set('type_id', (trim((string)$vo_restriction->type)) ? $t_list_item->getPrimaryKey(): null);
 					$t_restriction->set('element_id', $vn_element_id);
 					
@@ -619,6 +620,7 @@ class Installer {
 			$t_ui->setMode(ACCESS_WRITE);
 			$t_ui->set('user_id', null);
 			$t_ui->set('is_system_ui', 1);
+			$t_ui->set('editor_code', $vs_ui_code);
 			$t_ui->set('editor_type', $vn_type);
 			$t_ui->insert();
 
@@ -876,12 +878,14 @@ class Installer {
 				}
 			}
 		} else {
-			$va_displays = $this->opo_profile->displays->children();
+			if($this->opo_profile->displays){
+				foreach($this->opo_profile->displays->children() as $vo_display){
+					$va_displays[self::getAttribute($vo_display, "code")] = $vo_display;
+				}
+			}
 		}
 		
-		if(!is_array($va_displays) || sizeof($va_displays) == 0){
-			return true;
-		}
+		if(!is_array($va_displays) || sizeof($va_displays) == 0) return true;
 
 		foreach($va_displays as $vo_display){
 			$vs_display_code = self::getAttribute($vo_display, "code");
@@ -960,12 +964,14 @@ class Installer {
 				}
 			}
 		} else {
-			$va_forms = $this->opo_profile->searchForms->children();
+			if($this->opo_profile->searchForms){
+				foreach($this->opo_profile->searchForms->children() as $vo_form){
+					$va_forms[self::getAttribute($vo_form, "code")] = $vo_form;
+				}
+			}
 		}
-
-		if(!is_array($va_forms) || sizeof($va_forms) == 0){
-			return true;
-		}
+		
+		if(!is_array($va_forms) || sizeof($va_forms) == 0) return true;
 
 		foreach($va_forms as $vo_form){
 			$vs_form_code = self::getAttribute($vo_form, "code");

@@ -148,7 +148,7 @@
  		}
  		# ------------------------------------------------------------------
 		public function getDisplayValue($pa_options=null) {
-			return trim($this->ops_currency_specifier.' '.number_format($this->opn_value, 2));
+			return trim($this->ops_currency_specifier.' '.trim(sprintf("%14.2f", $this->opn_value)));
 		}
  		# ------------------------------------------------------------------
  		public function parseValue($ps_value, $pa_element_info) {

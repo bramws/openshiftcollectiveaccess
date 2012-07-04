@@ -44,7 +44,7 @@
 table, td { border: 1px solid #000000; color: #000000; text-wrap: normal; width: 135px; height: 120px; padding: 5px; font-size: 11px;}
 td.odd   { color: #00AA00; }
 .displayHeader { background-color: #EEEEEE; padding: 5px; border: 1px solid #999999; font-size: 12px; }
-#pageHeader { background-color: #<?php print $this->request->config->get('report_color')?>; margin: 0px 5px 10px 5px; padding: 3px 5px 2px 10px; width: 100%; height: 35px; }
+#pageHeader { background-color: #<?php print $this->request->config->get('report_color')?>; margin: 0px 5px 10px 5px; padding: 3px 5px 2px 10px; width: 100%; height: 45px; }
 .headerText { color: #FFFFFF; margin: -5px 0px 10px 35px; }
 .pagingText { color: #FFFFFF; margin: -5px 0px 10px 35px; text-align: right; }
 -->
@@ -54,7 +54,7 @@ td.odd   { color: #00AA00; }
 	$vn_start = 0;
 	while($vn_start < (sizeof($va_display_list) -1))   {
 ?>
-	<page backtop="40px">
+	<page backtop="50px">
 <?php
 	if($this->request->config->get('report_header_enabled')) {
 ?>

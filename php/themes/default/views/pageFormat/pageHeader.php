@@ -39,6 +39,7 @@
 	<head>
 	    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
 		<meta http-equiv="Content-Style-Type" content="text/css" />
+
 		<title><?php print $this->appconfig->get("window_title").($vs_window_title ? " : {$vs_window_title}" : ''); ?></title>
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/base.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/sets.css" type="text/css" media="screen" />
@@ -46,15 +47,26 @@
 		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/js/videojs/video-js.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/js/jquery/jquery-jplayer/jplayer.blue.monday.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/js/jquery/jquery-autocomplete/jquery.autocomplete.css" type="text/css" media="screen" />
-   		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/js/ia/BookReader.css" type="text/css" media="screen"/>
-		
+
+		<!--[if (!IE)|(gte IE 8)]><!-->
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/js/DV/viewer-datauri.css" media="screen" rel="stylesheet" type="text/css" />
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/js/DV/plain-datauri.css" media="screen" rel="stylesheet" type="text/css" />
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/js/DV/plain.css" media="screen" rel="stylesheet" type="text/css" />
+		<!--<![endif]-->
+		<!--[if lte IE 7]>
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/viewer.css" media="screen" rel="stylesheet" type="text/css" />
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/plain.css" media="screen" rel="stylesheet" type="text/css" />
+		<![endif]-->
+		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/js/jquery/jquery-tileviewer/jquery.tileviewer.css" type="text/css" media="screen" />
+
 <?php
 	print JavascriptLoadManager::getLoadHTML($this->request->getBaseUrlPath());
 	print MetaTagManager::getHTML();
 ?>
+	</head>
 		<script type="text/javascript">
 			// initialise plugins
-			jQuery(function(){
+			jQuery(document).ready(function() {
 				jQuery('ul.sf-menu').superfish(
 					{
 						delay: 350,
@@ -63,6 +75,8 @@
 						animation: { opacity: 'show' }
 					}
 				);
+				
+				jQuery('#caQuickSearchFormText').searchlight('<?php print caNavUrl($this->request, 'find', 'SearchObjects', 'lookup'); ?>', {showIcons: false, searchDelay: 100, minimumCharacters: 3, limitPerCategory: 3});
 			});
 			
 			// initialize CA Utils
@@ -77,6 +91,6 @@
 			</style>
 			<![endif]-->
 		<!-- super fish end menus -->
-	</head>
+		
 	<body>
 		<div align="center">

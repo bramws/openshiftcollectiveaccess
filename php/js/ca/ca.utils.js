@@ -6,7 +6,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -109,6 +109,55 @@ var caUI = caUI || {};
 			   return ret;
 			}
 			
+			// ------------------------------------------------------------------------------------
+			// Update state/province form drop-down based upon country setting
+			// Used by BaseModel for text fields with DISPLAY_TYPE DT_COUNTRY_LIST and DT_STATEPROV_LIST
+			//
+			caUI.utils.updateStateProvinceForCountry = function(e) {
+				var data = e.data;
+				var stateProvID = data.stateProvID;
+				var countryID = data.countryID;
+				var statesByCountryList = data.statesByCountryList;
+				var stateValue = data.value;
+				var mirrorStateProvID = data.mirrorStateProvID;
+				var mirrorCountryID = data.mirrorCountryID;
+				
+				var origStateValue = jQuery('#' + stateProvID + '_select').val();
+				
+				jQuery('#' + stateProvID + '_select').empty();
+				var countryCode = jQuery('#' + countryID).val();
+				if (statesByCountryList[countryCode]) {
+					for(k in statesByCountryList[countryCode]) {
+						jQuery('#' + stateProvID + '_select').append('<option value="' + statesByCountryList[countryCode][k] + '">' + k + '</option>');
+						
+						if (!stateValue && (origStateValue == statesByCountryList[countryCode][k])) {
+							stateValue = origStateValue;
+						}
+					}
+					jQuery('#' + stateProvID + '_text').css('display', 'none').attr('name', stateProvID + '_text');
+					jQuery('#' + stateProvID + '_select').css('display', 'inline').attr('name', stateProvID).val(stateValue);
+					
+					if (mirrorCountryID) {
+						jQuery('#' + stateProvID + '_select').change(function() {
+							jQuery('#' + mirrorStateProvID + '_select').val(jQuery('#' + stateProvID + '_select').val());
+						});
+						jQuery('#' + mirrorCountryID + '_select').val(jQuery('#' + countryID + '_select').val());
+						caUI.utils.updateStateProvinceForCountry({ data: {stateProvID: mirrorStateProvID, countryID: mirrorCountryID, statesByCountryList: statesByCountryList, value: stateValue}});
+					}
+				} else {
+					jQuery('#' + stateProvID + '_text').css('display', 'inline').attr('name', stateProvID);
+					jQuery('#' + stateProvID + '_select').css('display', 'none').attr('name', stateProvID + '_select');
+					
+					if (mirrorCountryID) {
+						jQuery('#' + stateProvID + '_text').change(function() {
+							jQuery('#' + mirrorStateProvID + '_text').val(jQuery('#' + stateProvID + '_text').val());
+						});
+						jQuery('#' + mirrorCountryID + '_select').attr('selectedIndex', jQuery('#' + countryID + '_select').attr('selectedIndex'));
+						
+						caUI.utils.updateStateProvinceForCountry({ data: {stateProvID: mirrorStateProvID, countryID: mirrorCountryID, statesByCountryList: statesByCountryList}});
+					}
+				}
+			};
 			// ------------------------------------------------------------------------------------
 		
 		return that;

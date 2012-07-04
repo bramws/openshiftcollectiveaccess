@@ -97,7 +97,8 @@
 					'query' => $ps_query,
 					'params' => $pa_params,
 					'time' => $pn_execution_time,
-					'numHits' => $pn_num_hits
+					'numHits' => $pn_num_hits,
+					'trace' => debug_backtrace()
 				);
 			}
 		}

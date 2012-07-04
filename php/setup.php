@@ -2,7 +2,7 @@
 # --------------------------------------------------------------------------------------------
 #
 # CollectiveAccess :: Open-source collections management software
-# Version 1.0
+# Version 1.2
 #
 # --------------------------------------------------------------------------------------------
 # THE VALUES BELOW ***MUST*** BE CHANGED TO SUIT YOUR ENVIRONMENT
@@ -14,9 +14,7 @@
 # 			Enter the correct directory but omit trailing slashes!
 # 			For Windows hosts, use a notation similar to "C:/PATH/TO/COLLECTIVEACCESS"; do NOT use backslashes
 #
-#added by Bram for OpenSHift install
-$basedir = $_SERVER['DOCUMENT_ROOT'];
-define("__CA_BASE_DIR__", "$basedir");
+define("__CA_BASE_DIR__", "/PATH/TO/COLLECTIVEACCESS");
 
 
 #
@@ -30,14 +28,13 @@ define("__CA_BASE_DIR__", "$basedir");
 # 		Example: If CollectiveAccess will be accessed via http://www.mysite.org/apps/ca then __CA_URL_ROOT__ would be set to /apps/ca
 #
 define("__CA_URL_ROOT__", "");
-#added by Bram for OpenShift install
-$hostname = $_SERVER['HTTP_HOST'];
+
 
 # __CA_SITE_HOSTNAME__ = the hostname for your system
 #
 #		This must be the full host name. Do not include http:// or any other prefixes.
 #
-define("__CA_SITE_HOSTNAME__", "$hostname");
+define("__CA_SITE_HOSTNAME__", "www.MyFirstCollectiveAccessSystem.org");
 
 
 # __CA_APP_NAME__ = a short name alphanumeric-only (no spaces or punctuation) name for this CollectiveAccess installation
@@ -45,14 +42,14 @@ define("__CA_SITE_HOSTNAME__", "$hostname");
 # 	If you are running more than one instance of CollectiveAccess on the same server make sure each instance has its
 #	own unique __CA_APP_NAME__ setting.  __CA_APP_NAME__ must include letters, numbers and underscores only - no spaces or punctuation!
 #
-define("__CA_APP_NAME__", "collectiveaccess");
+define("__CA_APP_NAME__", "my_first_collectiveaccess_system");
 
 
 # __CA_APP_DISPLAY_NAME__ = the name of your system for display purposes
 #
 #	This value will be used on emails, on the login screen, in window titles, etc.
 #
-define("__CA_APP_DISPLAY_NAME__", "CollectiveAccess Openshift 1.1");
+define("__CA_APP_DISPLAY_NAME__", "My First CollectiveAccess System");
 
 
 #
@@ -63,13 +60,13 @@ define("__CA_APP_DISPLAY_NAME__", "CollectiveAccess Openshift 1.1");
 define("__CA_DB_HOST__", 'localhost');
 
 # Database login user name
-define("__CA_DB_USER__", 'admin');
+define("__CA_DB_USER__", 'my_database_user');
 
 # Database login password
 define("__CA_DB_PASSWORD__", 'my_database_password');
 
 # The name of your CollectiveAccess database
-define("__CA_DB_DATABASE__", 'collectiveaccess');
+define("__CA_DB_DATABASE__", 'name_of_my_database');
 
 # Only MySQL databases are currently supported so leave this set to 'mysql'!
 define("__CA_DB_TYPE__", 'mysql');
@@ -100,6 +97,14 @@ define("__CA_SMTP_PORT__", 25);
 # Generic site admin email - used as the "from" address.
 define("__CA_ADMIN_EMAIL__", 'info@put-your-domain-here.tld');
 
+#
+# If you use PayPal for e-commerce payments then you can set your authentication information 
+# below by uncommenting the __CA_PAYPAL* lines and assigning them appropriate values
+#
+#define("__CA_PAYPAL_API_USERNAME__", "your_paypal_api_username");
+#define("__CA_PAYPAL_API_PASSWORD__", "your_paypal_api_password");
+#define("__CA_PAYPAL_API_SIGNATURE__", "your_paypal_api_signature");
+#define("__CA_PAYPAL_API_ENVIRONMENT__", "sandbox");		// "sandbox" for testing or "live" for production use
 
 # *** 
 # That's it! The settings here should be enough to get you up and running...
@@ -121,6 +126,11 @@ define("__CA_LIB_DIR__", __CA_APP_DIR__."/lib");
 
 # Path to CollectiveAccess 'lib' directory containing software libraries CA needs to function
 define("__CA_CONF_DIR__", __CA_APP_DIR__."/conf");
+
+# Path to local config directory - configuration containing installation-specific configuration
+# Note that this is not the same as the __CA_CONF_DIR__, which contains general application configuration
+# Installation-specific configuration simply allows you to override selected application configuration as-needed without having to modify the stock config
+define("__CA_LOCAL_CONFIG_DIRECTORY__", __CA_CONF_DIR__."/local");
 
 # Set path to instance configuration file
 # (If you want to run several CA distinct instances using a single install
@@ -190,7 +200,7 @@ define('__CA_ALLOW_AUTOMATIC_UPDATE_OF_DATABASE__', true);
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *

@@ -121,7 +121,11 @@
 						if ($vs_idno_display = trim($o_res->get($va_info['displayidno']))) {
 							$vs_idno_display = ' ['.$vs_idno_display.']';
 						}
-						print '<li class="quickSearchList">'.caNavLink($this->request, $o_res->get($vs_table.'.preferred_labels'), null, $va_info['module'], $va_info['controller'], $va_info['action'], array($va_info['primary_key'] => $o_res->get($va_info['primary_key'])))." ".$vs_idno_display."</li>\n";
+						if($this->request->user->canAccess($va_info["module"],$va_info["controller"],$va_info["action"],array($va_info["primary_key"] => $o_res->get($va_info["primary_key"])))){
+							print '<li class="quickSearchList">'.caNavLink($this->request, $o_res->get($vs_table.'.preferred_labels'), null, $va_info['module'], $va_info['controller'], $va_info['action'], array($va_info['primary_key'] => $o_res->get($va_info['primary_key'])))." ".$vs_idno_display."</li>\n";
+						} else {
+							print '<li class="quickSearchList">'.caNavLink($this->request, $o_res->get($vs_table.'.preferred_labels'), null, $va_info['module'], $va_info['controller'], "Summary", array($va_info['primary_key'] => $o_res->get($va_info['primary_key'])))." ".$vs_idno_display."</li>\n";
+						}
 					}
 ?>
 				</ul>

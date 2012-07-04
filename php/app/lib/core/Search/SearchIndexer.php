@@ -503,7 +503,7 @@ class SearchIndexer extends SearchBase {
 							}
 						} else {
 							// plain old field
-							if ($vb_can_do_incremental_indexing && (!$pb_reindex_mode) && (!isset($pa_changed_fields[$vs_field]))) {	// skip unchanged
+							if ($vb_can_do_incremental_indexing && (!$pb_reindex_mode) && (!isset($pa_changed_fields[$vs_field])) && ($vs_field != $t_subject->primaryKey()) ) {	// skip unchanged
 								continue;
 							}
 							

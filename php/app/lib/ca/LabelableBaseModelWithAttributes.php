@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -43,6 +43,7 @@
  require_once(__CA_LIB_DIR__.'/ca/ILabelable.php');
  require_once(__CA_APP_DIR__.'/models/ca_locales.php');
  require_once(__CA_APP_DIR__.'/models/ca_users.php');
+ require_once(__CA_APP_DIR__.'/helpers/accessHelpers.php');
  require_once(__CA_APP_DIR__.'/helpers/displayHelpers.php');
  
 	class LabelableBaseModelWithAttributes extends BaseModelWithAttributes implements ILabelable {
@@ -65,10 +66,11 @@
 			if (!($vn_id = $this->getPrimaryKey())) { return null; }
 		
 			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName()))) { return null; }
-			$t_label->purify($this->purify());
 			if ($this->inTransaction()) {
 				$t_label->setTransaction($this->getTransaction());
 			}
+			
+			$t_label->purify($this->purify());
 			foreach($pa_label_values as $vs_field => $vs_value) {
 				if ($t_label->hasField($vs_field)) { 
 					$t_label->set($vs_field, $vs_value); 
@@ -106,11 +108,11 @@
 			if (!($vn_id = $this->getPrimaryKey())) { return null; }
 			
 			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName()))) { return null; }
-			$t_label->purify($this->purify());
-			
 			if ($this->inTransaction()) {
 				$t_label->setTransaction($this->getTransaction());
 			}
+			
+			$t_label->purify($this->purify());
 			
 			if (!($t_label->load($pn_label_id))) { return null; }
 		
@@ -162,14 +164,15 @@
 		 */
  		public function removeLabel($pn_label_id) {
  			if (!$this->getPrimaryKey()) { return null; }
+ 			
  			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName()))) { return null; }
- 			
- 			if (!$t_label->load($pn_label_id)) { return null; }
- 			if (!($t_label->get($this->primaryKey()) == $this->getPrimaryKey())) { return null; }
- 			
  			if ($this->inTransaction()) {
 				$t_label->setTransaction($this->getTransaction());
 			}
+			
+ 			if (!$t_label->load($pn_label_id)) { return null; }
+ 			if (!($t_label->get($this->primaryKey()) == $this->getPrimaryKey())) { return null; }
+ 			
  			$t_label->setMode(ACCESS_WRITE);
  			
  			$this->opo_app_plugin_manager->hookBeforeLabelDelete(array('id' => $this->getPrimaryKey(), 'table_num' => $this->tableNum(), 'table_name' => $this->tableName(), 'instance' => $this, 'label_instance' => $t_label));
@@ -190,7 +193,11 @@
 		 */
  		public function removeAllLabels() {
  			if (!$this->getPrimaryKey()) { return null; }
+ 			
  			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName()))) { return null; }
+ 			if ($this->inTransaction()) {
+				$t_label->setTransaction($this->getTransaction());
+			}
  			
  			$va_labels = $this->getLabels();
  			foreach($va_labels as $vn_id => $va_labels_by_locale) {
@@ -228,20 +235,23 @@
  		 *
  		 */
  		public function loadByLabel($pa_label_values, $pa_table_values=null) {
- 			$t_instance = $this->getLabelTableInstance();
- 			
+ 			$t_label = $this->getLabelTableInstance();
+ 			if ($this->inTransaction()) {
+				$t_label->setTransaction($this->getTransaction());
+			}
+			
  			$o_db = $this->getDb();
  			
  			$va_wheres = array();
  			foreach($pa_label_values as $vs_fld => $vs_val) {
- 				if ($t_instance->hasField($vs_fld)) {
+ 				if ($t_label->hasField($vs_fld)) {
  					$va_wheres[$this->getLabelTableName().".".$vs_fld." = ?"] = $vs_val;
  				}
  			}
  			
  			if (is_array($pa_table_values)) {
 				foreach($pa_table_values as $vs_fld => $vs_val) {
-					if ($t_instance->hasField($vs_fld)) {
+					if ($t_label->hasField($vs_fld)) {
 						$va_wheres[$this->tableName().".".$vs_fld." = ?"] = $vs_val;
 					}
 				}
@@ -278,7 +288,10 @@
  		 *		bottom - For hierarchy specifications (eg. ca_objects.hierarchy) this option, if set, will limit the returned hierarchy to the first X nodes from the lowest node up. Default is to not limit.
  		 * 		hierarchicalDelimiter - Text to place between items in a hierarchy for a hierarchical specification (eg. ca_objects.hierarchy) when returning as a string
  		 *		removeFirstItems - If set to a non-zero value, the specified number of items at the top of the hierarchy will be omitted. For example, if set to 2, the root and first child of the hierarchy will be omitted. Default is zero (don't delete anything).
- 		 */
+ 		 *		checkAccess = array of access values to filter results by; if defined only items with the specified access code(s) are returned. Only supported for <table_name>.hierarchy.preferred_labels and <table_name>.children.preferred_labels because these returns sets of items. For <table_name>.parent.preferred_labels, which returns a single row at most, you should do access checking yourself. (Everything here applies equally to nonpreferred_labels)
+ 	 	 *		sort = optional bundles to sort returned values on. Only supported for <table_name>.children.preferred_labels. The bundle specifiers are fields with or without tablename.
+ 	 	 *		sort_direction = direction to sort results by, either 'asc' for ascending order or 'desc' for descending order; default is 'asc'
+ 	 	 */
 		public function get($ps_field, $pa_options=null) {
 			$vs_template = 				(isset($pa_options['template'])) ? $pa_options['template'] : null;
 			$vb_return_as_array = 		(isset($pa_options['returnAsArray'])) ? (bool)$pa_options['returnAsArray'] : false;
@@ -325,14 +338,33 @@
 							$va_data = array();
 							$va_children_ids = $this->getHierarchyChildren(null, array('idsOnly' => true));
 							
-							$t_instance = $this->getAppDatamodel()->getInstanceByTableNum($this->tableNum());
-							
-							foreach($va_children_ids as $vn_child_id) {
-								if ($t_instance->load($vn_child_id)) {
-									$va_data = array_merge($va_data, $t_instance->get($vs_childless_path, array_merge($pa_options, array('returnAsArray' => true))));
+							if (is_array($va_children_ids) && sizeof($va_children_ids)) {
+								$t_instance = $this->getAppDatamodel()->getInstanceByTableNum($this->tableNum());
+								
+								$vb_check_access = is_array($pa_options['checkAccess']) && $t_instance->hasField('access');
+								$vs_sort = isset($pa_options['sort']) ? $pa_options['sort'] : null;
+								$vs_sort_direction = (isset($pa_options['sort_direction']) && in_array(strtolower($pa_options['sort_direction']), array('asc', 'desc'))) ? strtolower($pa_options['sort_direction']) : 'asc';
+								
+								$qr_children = $this->makeSearchResult($this->tableName(), $va_children_ids);
+								
+								$vs_table = $this->tableName();
+								while($qr_children->nextHit()) {
+									if ($vb_check_access && !in_array($qr_children->get("{$vs_table}.access"), $pa_options['checkAccess'])) { continue; }
+									
+									$vs_sort_key = ($vs_sort) ? $qr_children->get($vs_sort) : 0;
+									if(!is_array($va_data[$vs_sort_key])) { $va_data[$vs_sort_key] = array(); }
+									$va_data[$vs_sort_key] = array_merge($va_data[$vs_sort_key], $qr_children->get($vs_childless_path, array_merge($pa_options, array('returnAsArray' => true))));
 								}
+								ksort($va_data);
+								if ($vs_sort_direction && $vs_sort_direction == 'desc') { $va_data = array_reverse($va_data); }
+								$va_sorted_data = array();
+								foreach($va_data as $vs_sort_key => $va_items) {
+									foreach($va_items as $vs_k => $vs_v) {
+										$va_sorted_data[] = $vs_v;
+									}
+								}
+								$va_data = $va_sorted_data;
 							}
-							
 							if ($vb_return_as_array) {
 								return $va_data;
 							} else {
@@ -376,8 +408,10 @@
 							}
 						}
 						
+						$vb_check_access = is_array($pa_options['checkAccess']) && $this->hasField('access');
 						$va_tmp = array();
 						foreach($va_ancestor_list as $vn_i => $va_item) {
+							if ($vb_check_access && !in_array($va_item['access'], $pa_options['checkAccess'])) { continue; }
 							if ($vs_template) {
 								$va_tmp[$va_item['NODE'][$vs_pk]] = caProcessTemplate($vs_template, $va_item['NODE'], array('removePrefix' => 'preferred_labels.'));
 							} else {
@@ -621,6 +655,9 @@
 		 */
  		public function getLabelForDisplay($pb_dont_cache=true, $pm_locale=null, $pa_options=null) {
 			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName(), true))) { return null; }
+			if ($this->inTransaction()) {
+				$t_label->setTransaction($this->getTransaction());
+			}
 			
 			$va_preferred_locales = null;
 			if ($pm_locale) {
@@ -723,21 +760,43 @@
 		 * @param array $pa_options Array of options. Supported options are:
 		 *			row_id = The row_id to return labels for. If omitted the id of the currently loaded row is used. If row_id is not set and now row is loaded then getLabels() will return null.
 		 *			restrict_to_types = an optional array of numeric type ids or alphanumeric type identifiers to restrict the returned labels to. The types are list items in a list specified in app.conf (or, if not defined there, by hardcoded constants in the model)
+		 *			restrictToTypes = synonym for restrict_to_types
 		 *			extractValuesByUserLocale = if set returned array of values is filtered to include only values appropriate for the current user's locale
 		 *			forDisplay = if true, a simple list of labels ready for display is returned; implies the extractValuesByUserLocale option
 		 *
 		 * @return array List of labels
 		 */
  		public function getLabels($pa_locale_ids=null, $pn_mode=__CA_LABEL_TYPE_ANY__, $pb_dont_cache=true, $pa_options=null) {
+ 			if(isset($pa_options['restrictToTypes']) && (!isset($pa_options['restrict_to_types']) || !$pa_options['restrict_to_types'])) { $pa_options['restrict_to_types'] = $pa_options['restrictToTypes']; }
+	 	
  			if (!($vn_id = $this->getPrimaryKey()) && !(isset($pa_options['row_id']) && ($vn_id = $pa_options['row_id']))) { return null; }
  			if (isset($pa_options['forDisplay']) && $pa_options['forDisplay']) {
  				$pa_options['extractValuesByUserLocale'] = true;
  			}
- 			$vs_cache_key = $this->tableName().'/'.$vn_id.'/'.intval($pn_mode).'/'.md5(print_R($pa_options, true));
+ 			
+			if (($pn_mode == __CA_LABEL_TYPE_ANY__) && (caGetBundleAccessLevel($this->tableName(), 'preferred_labels') == __CA_BUNDLE_ACCESS_NONE__)) {
+				$pn_mode = __CA_LABEL_TYPE_NONPREFERRED__;
+			}
+			if (($pn_mode == __CA_LABEL_TYPE_ANY__) && (caGetBundleAccessLevel($this->tableName(), 'nonpreferred_labels') == __CA_BUNDLE_ACCESS_NONE__)) {
+				$pn_mode = __CA_LABEL_TYPE_PREFERRED__; 
+			}
+ 			
+ 			if (($pn_mode == __CA_LABEL_TYPE_PREFERRED__) && (caGetBundleAccessLevel($this->tableName(), 'preferred_labels') == __CA_BUNDLE_ACCESS_NONE__)) {
+				return null;
+			}
+			if (($pn_mode == __CA_LABEL_TYPE_NONPREFERRED__) && (caGetBundleAccessLevel($this->tableName(), 'nonpreferred_labels') == __CA_BUNDLE_ACCESS_NONE__)) {
+				return null;
+			}
+ 			
+ 			if (!is_array($pa_options)) { $pa_options = array(); }
+ 			$vs_cache_key = caMakeCacheKeyFromOptions(array_merge($pa_options, array('table_name' => $this->tableName(), 'id' => $vn_id, 'mode' => (int)$pn_mode)));
  			if (!$pb_dont_cache && is_array($va_tmp = LabelableBaseModelWithAttributes::$s_label_cache[$vs_cache_key])) {
  				return $va_tmp;
  			}
 			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName(), true))) { return null; }
+			if ($this->inTransaction()) {
+				$t_label->setTransaction($this->getTransaction());
+			}
  			
  			$vs_label_where_sql = 'WHERE (l.'.$this->primaryKey().' = ?)';
  			$vs_locale_join_sql = '';
@@ -846,7 +905,9 @@
  		public function getPreferredLabelCount() {
  			if (!$this->getPrimaryKey()) { return null; }
 			if (!($t_label = $this->_DATAMODEL->getInstanceByTableName($this->getLabelTableName(), true))) { return null; }
-			
+			if ($this->inTransaction()) {
+				$t_label->setTransaction($this->getTransaction());
+			}
 			$o_db = $this->getDb();
  			
  			if (!$t_label->hasField('is_preferred')) { 
@@ -1476,6 +1537,7 @@
 			$t_rel = $o_dm->getInstanceByTableName($this->getProperty('USERS_RELATIONSHIP_TABLE'));
 			$o_view->setVar('t_rel', $t_rel);
 			
+			$o_view->setVar('t_instance', $this);
 			$o_view->setVar('table_num', $pn_table_num);
 			$o_view->setVar('id_prefix', $ps_form_name);		
 			$o_view->setVar('request', $po_request);	
@@ -1693,6 +1755,7 @@
 			$t_rel = $o_dm->getInstanceByTableName($this->getProperty('USERS_RELATIONSHIP_TABLE'));
 			$o_view->setVar('t_rel', $t_rel);
 			
+			$o_view->setVar('t_instance', $this);
 			$o_view->setVar('table_num', $pn_table_num);
 			$o_view->setVar('id_prefix', $ps_form_name);		
 			$o_view->setVar('request', $po_request);	

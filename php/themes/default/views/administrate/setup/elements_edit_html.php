@@ -93,6 +93,9 @@
 								<select id="{fieldNamePrefix}type_id_{n}" name="{fieldNamePrefix}type_id_{n}">
 									<option value=''>-</option>
 								</select>
+<?php
+								print $t_restriction->htmlFormElement('include_subtypes', null, array('classname' => '', 'id' => "{fieldNamePrefix}include_subtypes_{n}", 'name' => "{fieldNamePrefix}include_subtypes_{n}", "value" => "", 'no_tooltips' => false, 'hide_select_if_only_one_option' => false));
+?>
 						</td>
 						<td><?php 
 							foreach($t_restriction->getAvailableSettings() as $vs_setting => $va_setting_info) {
@@ -121,7 +124,7 @@
 		var caTypeOptions = <?php print json_encode($this->getVar('type_list')); ?>;
 		caUI.initBundle('#type_restrictions', {
 			fieldNamePrefix: 'type_restrictions_',
-			templateValues: <?php print json_encode(array_merge(array_keys($t_restriction->getAvailableSettings()), array('table_num', 'type_id'))); ?>, 
+			templateValues: <?php print json_encode(array_merge(array_keys($t_restriction->getAvailableSettings()), array('table_num', 'type_id', 'include_subtypes'))); ?>, 
 			initialValues: <?php print json_encode($va_initial_values); ?>,
 			itemID: '<?php print $vs_id_prefix; ?>Item_',
 			templateClassName: 'caItemTemplate',

@@ -39,8 +39,9 @@
 <?php
 				print $vs_form;
 				print caJSButton(
-					$po_request, __CA_NAV_BUTTON_SAVE__, _t('Save'), '', array(),
-					array('onclick' => 'jQuery("#caWidgetSettingForm_'.$vs_widget_id.'").load("'.caNavUrl($this->request, '', 'Dashboard', 'saveSettings', array()).'", jQuery("#caWidgetSettings_'.$vs_widget_id.'").serializeArray());')
+					$po_request, __CA_NAV_BUTTON_SAVE__, _t('Save'), '', 
+					array('onclick' => 'jQuery("#caWidgetSettingForm_'.$vs_widget_id.'").load("'.caNavUrl($this->request, '', 'Dashboard', 'saveSettings', array()).'", jQuery("#caWidgetSettings_'.$vs_widget_id.'").serializeArray());'),
+					array()
 				).' ';
 			} else {
 ?>
@@ -49,8 +50,9 @@
 			}
 			
 			print caJSButton(
-				$po_request, __CA_NAV_BUTTON_CANCEL__, _t('Cancel'), '', array(),
-				array('onclick' => 'jQuery("#caWidgetSettingForm_'.$vs_widget_id.'").load("'.caNavUrl($this->request, '', 'Dashboard', 'getWidget', array()).'", jQuery("#caWidgetSettings_'.$vs_widget_id.'").serializeArray());')
+				$po_request, __CA_NAV_BUTTON_CANCEL__, _t('Cancel'), '', 
+				array('onclick' => 'jQuery("#caWidgetSettingForm_'.$vs_widget_id.'").load("'.caNavUrl($this->request, '', 'Dashboard', 'getWidget', array()).'", jQuery("#caWidgetSettings_'.$vs_widget_id.'").serializeArray());',
+				array())
 			);
 ?>
 			<?php print caHTMLHiddenInput('widget_id', array('value' => $vs_widget_id)); ?>

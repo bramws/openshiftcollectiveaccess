@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -27,11 +27,16 @@
  */
  
 	$vs_id_prefix 		= $this->getVar('placement_code').$this->getVar('id_prefix');
+	$t_instance 		= $this->getVar('t_instance');
 	$t_item 			= $this->getVar('t_group');				// user group
-	$t_rel 					= $this->getVar('t_rel');			// *_x_user_groups instance (eg. ca_sets_x_user_groups)
+	$t_rel 				= $this->getVar('t_rel');			// *_x_user_groups instance (eg. ca_sets_x_user_groups)
 	$t_subject 			= $this->getVar('t_subject');		
-	$va_settings 		= 	$this->getVar('settings');
+	$va_settings 		= $this->getVar('settings');
 	$vs_add_label 		= $this->getVar('add_label');
+	
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($t_instance->tableName(), 'ca_users') == __CA_BUNDLE_ACCESS_READONLY__));
+	
+	
 	$va_initial_values = $this->getVar('initialValues');
 	if (!is_array($va_initial_values)) { $va_initial_values = array(); }
 	
@@ -47,13 +52,20 @@
 			<table class="caListItem">
 				<tr>
 					<td class="formLabel">
-						<input type="text" size="35" name="<?php print $vs_id_prefix; ?>_autocomplete{n}" value="{{_display}}" id="<?php print $vs_id_prefix; ?>_autocomplete{n}" class="lookupBg"/>
+						<?php print _t('Group'); ?>
+						<input type="text" size="30" name="<?php print $vs_id_prefix; ?>_autocomplete{n}" value="{{_display}}" id="<?php print $vs_id_prefix; ?>_autocomplete{n}" class="lookupBg"/>
 						<?php print $t_rel->htmlFormElement('access', '^ELEMENT', array('name' => $vs_id_prefix.'_access_{n}', 'id' => $vs_id_prefix.'_access_{n}', 'value' => '{{access}}')); ?>
 						<?php if ($t_rel->hasField('effective_date')) { print _t(' for period ').$t_rel->htmlFormElement('effective_date', '^ELEMENT', array('name' => $vs_id_prefix.'_effective_date_{n}', 'value' => '{{effective_date}}', 'classname'=> 'dateBg')); } ?>
 						<input type="hidden" name="<?php print $vs_id_prefix; ?>_id{n}" id="<?php print $vs_id_prefix; ?>_id{n}" value="{id}"/>
 					</td>
 					<td>
+<?php
+	if (!$vb_read_only) {
+?>	
 						<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
+<?php
+	}
+?>
 					</td>
 				</tr>
 			</table>
@@ -64,7 +76,13 @@
 		<div class="caItemList">
 		
 		</div>
+<?php
+	if (!$vb_read_only) {
+?>	
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label ? $vs_add_label : _t("Add  group access"); ?></a></div>
+<?php
+	}
+?>
 	</div>
 </div>
 			
@@ -80,6 +98,7 @@
 			addButtonClassName: 'caAddItemButton',
 			deleteButtonClassName: 'caDeleteItemButton',
 			showEmptyFormsOnLoad: 0,
+			readonly: <?php print $vb_read_only ? "true" : "false"; ?>,
 			autocompleteUrl: '<?php print caNavUrl($this->request, 'lookup', 'UserGroup', 'Get', array()); ?>'
 		});
 	});

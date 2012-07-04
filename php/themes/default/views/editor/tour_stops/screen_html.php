@@ -28,17 +28,21 @@
  	$t_stop 			= $this->getVar('t_subject');
 	$vn_stop_id 		= $this->getVar('subject_id');
 	$vn_above_id 		= $this->getVar('above_id');
+
+	$vb_can_edit	 	= $t_stop->isSaveable($this->request);
+	$vb_can_delete		= $t_stop->isDeletable($this->request);
 	
 	$t_ui 				= $this->getVar('t_ui');
 	$vs_context_id 		= $this->getVar('_context_id');	// used to restrict idno uniqueness checking to within the current list
 	
-	
-	print $vs_control_box = caFormControlBox(
-		caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'TourStopEditorForm').' '.
-		caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/tour_stops', 'TourStopEditor', 'Edit/'.$this->request->getActionExtra(), array('stop_id' => $vn_stop_id)), 
-		'', 
-		(intval($vn_stop_id) > 0) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/tour_stops', 'TourStopEditor', 'Delete/'.$this->request->getActionExtra(), array('stop_id' => $vn_stop_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'TourStopEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/tour_stops', 'TourStopEditor', 'Edit/'.$this->request->getActionExtra(), array('stop_id' => $vn_stop_id)), 
+			'', 
+			((intval($vn_stop_id) > 0) && ($vb_can_delete)) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/tour_stops', 'TourStopEditor', 'Delete/'.$this->request->getActionExtra(), array('stop_id' => $vn_stop_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -52,7 +56,7 @@
 			
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='_context_id' value='<?php print $this->getVar('_context_id'); ?>'/>
 			<input type='hidden' name='stop_id' value='<?php print $vn_stop_id; ?>'/>

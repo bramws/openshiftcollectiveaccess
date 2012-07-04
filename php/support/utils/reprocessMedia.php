@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/local/bin/php
 <?php
 	define('__CollectiveAccess_IS_REPROCESSING_MEDIA__', 1);
 	
@@ -22,13 +22,18 @@
 	$qr_reps = $o_db->query("SELECT * FROM ca_object_representations ORDER BY representation_id");
 	while($qr_reps->nextRow()) {
 		$vs_mimetype = $qr_reps->getMediaInfo('media', 'original', 'MIMETYPE');
-		if(($argv[3]) && (!preg_match("/^".$argv[3]."/", $vs_mimetype))) {
+		if(($argv[3]) && (!preg_match("!^".$argv[3]."!", $vs_mimetype))) {
 			continue;
 		}
 		print "Re-processing ".$vs_mimetype." media for representation id=".$qr_reps->get('representation_id')."\n";
 		$t_rep->load($qr_reps->get('representation_id'));
-		$t_rep->set('media', $qr_reps->getMediaPath('media', 'original'));
-		$t_rep->update(array('update_only_media_versions' => array($argv[2])));
+		$t_rep->set('media', $p =$qr_reps->getMediaPath('media', 'original'));
+		print "path=$p\n";
+		if ($argv[2]) {
+			$t_rep->update(array('update_only_media_versions' => array($argv[2])));
+		} else {
+			$t_rep->update();
+		}
 		
 		if ($t_rep->numErrors()) {
 			print "\tERROR PROCESSING MEDIA: ".join('; ', $t_rep->getErrors())."\n";

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -33,6 +33,9 @@
 	if (!$va_force_new_labels = $this->getVar('new_labels')) { $va_force_new_labels = array(); }	// list of new labels not saved due to error which we need to for onto the label list as new
 
 	$va_settings = 		$this->getVar('settings');
+	
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel('ca_editor_ui_sceens', 'preferred_labels') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 ?>
 <div id="<?php print $vs_id_prefix; ?>Labels">
 <?php
@@ -45,7 +48,7 @@
 			<div style="float: right;">
 				<a href="#" class="caDeleteLabelButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
 			</div>
-			<?php print $t_label->htmlFormElement('name', "^ELEMENT", array_merge($va_settings, array('name' => "{fieldNamePrefix}name_{n}", 'id' => "{fieldNamePrefix}name_{n}", "value" => "{{name}}", 'no_tooltips' => true, 'textAreaTagName' => 'textentry'))); ?>
+			<?php print $t_label->htmlFormElement('name', "^ELEMENT", array_merge($va_settings, array('name' => "{fieldNamePrefix}name_{n}", 'id' => "{fieldNamePrefix}name_{n}", "value" => "{{name}}", 'no_tooltips' => true, 'textAreaTagName' => 'textentry', 'readonly' => $vb_read_only))); ?>
 			<br/>
 			<?php print '<div class="formLabel">'.$t_label->htmlFormElement('locale_id', "^LABEL ^ELEMENT", array('classname' => 'labelLocale', 'id' => "{fieldNamePrefix}locale_id_{n}", 'name' => "{fieldNamePrefix}locale_id_{n}", "value" => "{locale_id}", 'no_tooltips' => true, 'dont_show_null_value' => true, 'hide_select_if_only_one_option' => true, 'WHERE' => array('(dont_use_for_cataloguing = 0)'))).'</div>'; ?>	
 		</div>
@@ -73,6 +76,7 @@
 		labelListClassName: 'caLabelList',
 		addButtonClassName: 'caAddLabelButton',
 		deleteButtonClassName: 'caDeleteLabelButton',
+		readonly: <?php print $vb_read_only ? "1" : "0"; ?>,
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>
 	});
 </script>

@@ -265,6 +265,7 @@ class ElementsController extends BaseEditorController {
 						$t_restriction->setMode(ACCESS_WRITE);
 						$t_restriction->set('table_num', $this->request->getParameter('type_restrictions_table_num_'.$va_matches[1], pInteger));
 						$t_restriction->set('type_id', ($vn_type_id = $this->request->getParameter('type_restrictions_type_id_'.$va_matches[1], pInteger)) ? $vn_type_id : null);
+						$t_restriction->set('include_subtypes', ($vn_include_subtypes = $this->request->getParameter('type_restrictions_include_subtypes_'.$va_matches[1], pInteger)) ? $vn_include_subtypes : null);
 						
 						foreach($va_settings as $vs_setting) {
 							$t_restriction->setSetting($vs_setting, $this->request->getParameter('type_restrictions_setting_'.$vs_setting.'_'.$va_matches[1], pString));
@@ -280,6 +281,7 @@ class ElementsController extends BaseEditorController {
 					$t_restriction->set('element_id', $t_element->getPrimaryKey());
 					$t_restriction->set('table_num', $this->request->getParameter('type_restrictions_table_num_new_'.$va_matches[1], pInteger));
 					$t_restriction->set('type_id', ($vn_type_id = $this->request->getParameter('type_restrictions_type_id_new_'.$va_matches[1], pInteger)) ? $vn_type_id : null);
+					$t_restriction->set('include_subtypes', ($vn_include_subtypes = $this->request->getParameter('type_restrictions_include_subtypes_new_'.$va_matches[1], pInteger)) ? $vn_include_subtypes : null);
 					
 					foreach($va_settings as $vs_setting) {
 						$t_restriction->setSetting($vs_setting, $this->request->getParameter('type_restrictions_setting_'.$vs_setting.'_new_'.$va_matches[1], pString));

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -43,6 +43,9 @@
 	
 	$va_failed_inserts 			= 	$this->getVar('failed_insert_attribute_list');
 	$va_failed_updates 			= 	$this->getVar('failed_update_attribute_list');
+	
+	$va_settings 				= 	$this->getVar('settings');
+	$vb_read_only				=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($this->getVar('t_instance')->tableName(), $this->getVar('element_code')) == __CA_BUNDLE_ACCESS_READONLY__));
 	
 	// generate list of inital form values; the bundle Javascript call will
 	// use the template to generate the initial form
@@ -103,7 +106,6 @@
 	
 	// bundle settings
 	global $g_ui_locale;
-	$va_settings = 			$this->getVar('settings');
 	if (!$vs_add_label = $va_settings['add_label'][$g_ui_locale]) {
 		$vs_add_label = _t("Add %1", mb_strtolower($vs_element_set_label, 'UTF-8'));
 	}
@@ -121,7 +123,7 @@
 		<div id="<?php print $vs_id_prefix; ?>Item_{n}" class="labelInfo">	
 			<span class="formLabelError">{error}</span>
 <?php
-	if ($vs_render_mode !== 'checklist') {		// static (non-repeating) checkbox list for list attributes
+	if (($vs_render_mode !== 'checklist') && !$vb_read_only) {		// static (non-repeating) checkbox list for list attributes
 ?>
 			<div style="float: right;">
 				<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
@@ -156,7 +158,7 @@
 		
 		</div>
 <?php
-	if ($vs_render_mode !== 'checklist') {
+	if (($vs_render_mode !== 'checklist') && !$vb_read_only) {
 ?>
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label; ?></a></div>
 <?php
@@ -180,7 +182,7 @@
 		minRepeats: <?php print ($vn_n = $this->getVar('min_num_repeats')) ? $vn_n : 0 ; ?>,
 		maxRepeats: <?php print ($vn_n = $this->getVar('max_num_repeats')) ? $vn_n : 65535; ?>,
 		defaultValues: <?php print json_encode($va_element_value_defaults); ?>,
-		readonly: <?php print (isset($va_settings['readonly']) && $va_settings['readonly']) ? "1" : "0"; ?>,
+		readonly: <?php print $vb_read_only ? "1" : "0"; ?>,
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>
 <?php	
 	} else {
@@ -202,7 +204,7 @@
 		hideOnNewIDList: ['<?php print $vs_id_prefix; ?>_download_control_'],
 		showOnNewIDList: ['<?php print $vs_id_prefix; ?>_upload_control_'],
 		defaultValues: <?php print json_encode($va_element_value_defaults); ?>,
-		readonly: <?php print (isset($va_settings['readonly']) && $va_settings['readonly']) ? "1" : "0"; ?>,
+		readonly: <?php print $vb_read_only ? "1" : "0"; ?>,
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>
 <?php
 	}

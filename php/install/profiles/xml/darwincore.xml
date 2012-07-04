@@ -1497,7 +1497,7 @@
                 <setting name="maxChars">255</setting>
               </settings>
             </metadataElement>
-            <metadataElement code="stateprovince" datatype="Text">
+            <metadataElement code="state_or_province" datatype="Text">
               <labels>
                 <label locale="en_US">
                   <name>State/province</name>

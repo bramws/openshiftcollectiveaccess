@@ -82,7 +82,7 @@ BaseModel::$s_ca_models_definitions['ca_bookmarks'] = array(
 		'row_id' => array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_OMIT,
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
-				'IS_NULL' => true, 
+				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => 'Row id', 'DESCRIPTION' => 'Identifier for row included in the bookmark list'
 		),
@@ -99,7 +99,7 @@ BaseModel::$s_ca_models_definitions['ca_bookmarks'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Notes'), 'DESCRIPTION' => _t('Notes pertaining to the bookmark and/or bookmarked item.'),
-				'BOUNDS_LENGTH' => array(1,65535)
+				'BOUNDS_LENGTH' => array(0,65535)
 		),
 		'created_on' => array(
 				'FIELD_TYPE' => FT_TIMESTAMP, 'DISPLAY_TYPE' => DT_FIELD, 'UPDATE_ON_UPDATE' => true,

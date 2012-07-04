@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -43,11 +43,12 @@ include_once(__CA_LIB_DIR__."/core/Plugins/IWLPlugMedia.php");
 include_once(__CA_LIB_DIR__."/core/Parsers/TilepicParser.php");
 include_once(__CA_LIB_DIR__."/core/Configuration.php");
 include_once(__CA_APP_DIR__."/helpers/mediaPluginHelpers.php");
+include_once(__CA_LIB_DIR__."/core/Parsers/MediaMetadata/XMPParser.php");
 
 class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 	var $errors = array();
 	
-	var $filepath;
+	var $ps_filepath;
 	var $handle;
 	var $ohandle;
 	var $properties;
@@ -55,6 +56,8 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 	
 	var $opo_config;
 	var $opo_external_app_config;
+	
+	var $opa_faces;
 	
 	var $info = array(
 		"IMPORT" => array(
@@ -134,6 +137,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 			'reference-black'	=> 'W',
 			'reference-white'	=> 'W',
 			'no_upsampling'		=> 'W',
+			'faces'				=> 'W',
 			'version'			=> 'W'	// required of all plug-ins
 		),
 		
@@ -248,10 +252,10 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 		return $va_status;
 	}
 	# ------------------------------------------------
-	public function divineFileFormat($filepath) {
+	public function divineFileFormat($ps_filepath) {
 		$r_handle = new Imagick();
 		try {
-			if ($filepath != '' && ($r_handle->pingImage($filepath))) {
+			if ($ps_filepath != '' && ($r_handle->pingImage($ps_filepath))) {
 				$mimetype = $this->_getMagickImageMimeType($r_handle);
 				if (($mimetype) && $this->info["IMPORT"][$mimetype]) {
 					return $mimetype;
@@ -265,7 +269,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 			
 		# is it a tilepic?
 		$tp = new TilepicParser();
-		if ($tp->isTilepic($filepath)) {
+		if ($tp->isTilepic($ps_filepath)) {
 			return 'image/tilepic';
 		} else {
 			# file format is not supported by this plug-in
@@ -402,16 +406,16 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 		return $this->metadata;
 	}
 	# ----------------------------------------------------------
-	public function read($filepath, $mimetype="") {
-		if (!(($this->handle) && ($filepath === $this->filepath))) {
+	public function read($ps_filepath, $mimetype="") {
+		if (!(($this->handle) && ($$ps_filepath === $this->filepath))) {
 			
 			if ($mimetype == 'image/tilepic') {
 				#
 				# Read in Tilepic format image
 				#
-				$this->handle = new TilepicParser($filepath);
+				$this->handle = new TilepicParser($ps_filepath);
 				if (!$this->handle->error) {
-					$this->filepath = $filepath;
+					$this->filepath = $ps_filepath;
 					foreach($this->handle->properties as $k => $v) {
 						if (isset($this->properties[$k])) {
 							$this->properties[$k] = $v;
@@ -429,9 +433,9 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 				$this->filepath = "";
 				$handle = new Imagick();
 				
-				if ($handle->readImage($filepath)) {
+				if ($handle->readImage($ps_filepath)) {
 					$this->handle = $handle;
-					$this->filepath = $filepath;
+					$this->filepath = $ps_filepath;
 					
 					$va_raw_metadata = $this->handle->getImageProperties();
 					$this->metadata = array();
@@ -442,8 +446,58 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 						} else {
 							$vs_type = 'GENERIC';
 						}
+						if ($vs_type == 'EXIF') { continue; }
 						
-						$this->metadata['METADATA_'.$vs_type][$vs_tag] = $vs_value;
+						$this->metadata[$vs_type][$vs_tag] = $vs_value;
+					}
+					
+					// exif
+					if(function_exists('exif_read_data')) {
+						if (is_array($va_exif = @exif_read_data($ps_filepath, 'EXIF', true, false))) { 							
+							//
+							// Rotate incoming image as needed
+							//
+							if (isset($va_exif['IFD0']['Orientation'])) {
+								$vn_orientation = $va_exif['IFD0']['Orientation'];
+								$vs_tmp_basename = tempnam(caGetTempDirPath(), 'ca_image_tmp');
+								
+								$vb_is_rotated = false;
+								switch($vn_orientation) {
+									case 3:
+										$this->handle->rotateImage("#FFFFFF", 180);
+										unset($va_exif['IFD0']['Orientation']);
+										$vb_is_rotated = true;
+										break;
+									case 6:
+										$this->handle->rotateImage("#FFFFFF", 90);
+										unset($va_exif['IFD0']['Orientation']);
+										$vb_is_rotated = true;
+										break;
+									case 8:
+										$this->handle->rotateImage("#FFFFFF", -90);
+										unset($va_exif['IFD0']['Orientation']);
+										$vb_is_rotated = true;
+										break;
+								}
+								
+								if($vb_is_rotated) {								
+									if ( $this->handle->writeImage($vs_tmp_basename) ) {
+										$va_tmp = $this->handle->getImageGeometry();
+										$this->properties["faces"] = $this->opa_faces = caDetectFaces($vs_tmp_basename, $va_tmp['width'], $va_tmp['height']);
+										@unlink($vs_tmp_basename);
+									}
+								}
+							}
+							$this->metadata['EXIF'] = $va_exif;
+						}
+					}
+					
+					// XMP					
+					$o_xmp = new XMPParser();
+					if ($o_xmp->parse($ps_filepath)) {
+						if (is_array($va_xmp_metadata = $o_xmp->getMetadata()) && sizeof($va_xmp_metadata)) {
+							$this->metadata['XMP'] = $va_xmp_metadata;
+						}
 					}
 					
 					# load image properties
@@ -462,6 +516,11 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 					if (!$this->handle->setImageColorspace(imagick::COLORSPACE_RGB)) {
 						$this->postError(1610, _t("Error during RGB colorspace transformation operation"), "WLPlugImagick->read()");
 						return false;
+					}
+					
+					
+					if (!$this->properties["faces"]) {
+						$this->properties["faces"] = $this->opa_faces = caDetectFaces($ps_filepath, $va_tmp['width'], $va_tmp['height']);
 					}
 					
 					$this->properties["mimetype"] = $this->_getMagickImageMimeType($this->handle);
@@ -667,36 +726,51 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 								return false;
 						}
 						if ($do_fill_box_crop) {
-							switch($crop_from) {
-								case 'north_west':
-									$crop_from_offset_y = 0;
-									$crop_from_offset_x = $w - $parameters["width"];
-									break;
-								case 'south_east':
-									$crop_from_offset_x = 0;
-									$crop_from_offset_y = $h - $parameters["height"];
-									break;
-								case 'south_west':
-									$crop_from_offset_x = $w - $parameters["width"];
-									$crop_from_offset_y = $h - $parameters["height"];
-									break;
-								case 'random':
-									$crop_from_offset_x = rand(0, $w - $parameters["width"]);
-									$crop_from_offset_y = rand(0, $h - $parameters["height"]);
-									break;
-								case 'north_east':
-									$crop_from_offset_x = $crop_from_offset_y = 0;
-									break;
-								case 'center':
-								default:
-									if ($w > $parameters["width"]) {
-										$crop_from_offset_x = ceil(($w - $parameters["width"])/2);
-									} else {
-										if ($h > $parameters["height"]) {
-											$crop_from_offset_y = ceil(($h - $parameters["height"])/2);
+							// use face detection info to intelligently crop
+							if(is_array($this->properties['faces']) && sizeof($this->properties['faces'])) {
+								$va_info = array_shift($this->properties['faces']);
+								$crop_from_offset_x = ceil($va_info['x'] * (($scale_factor_w > $scale_factor_h) ? $scale_factor_w : $scale_factor_h));
+								$crop_from_offset_x -= ceil(0.15 * $parameters["width"]);	// since face will be tightly cropped give it some room
+								$crop_from_offset_y = ceil($va_info['y'] * (($scale_factor_w > $scale_factor_h) ? $scale_factor_w : $scale_factor_h));
+								$crop_from_offset_y -= ceil(0.15 * $parameters["height"]);	// since face will be tightly cropped give it some room
+								
+								// Don't try to crop beyond image boundaries, you just end up scaling the image, often awkwardly
+								if ($crop_from_offset_x > ($w - $parameters["width"])) { $crop_from_offset_x = 0; }
+								if ($crop_from_offset_y > ($h - $parameters["height"])) { $crop_from_offset_y = 0; }
+								if ($crop_from_offset_x < 0) { $crop_from_offset_x = 0; }
+								if ($crop_from_offset_y < 0) { $crop_from_offset_y = 0; }
+							} else {
+								switch($crop_from) {
+									case 'north_west':
+										$crop_from_offset_y = 0;
+										$crop_from_offset_x = $w - $parameters["width"];
+										break;
+									case 'south_east':
+										$crop_from_offset_x = 0;
+										$crop_from_offset_y = $h - $parameters["height"];
+										break;
+									case 'south_west':
+										$crop_from_offset_x = $w - $parameters["width"];
+										$crop_from_offset_y = $h - $parameters["height"];
+										break;
+									case 'random':
+										$crop_from_offset_x = rand(0, $w - $parameters["width"]);
+										$crop_from_offset_y = rand(0, $h - $parameters["height"]);
+										break;
+									case 'north_east':
+										$crop_from_offset_x = $crop_from_offset_y = 0;
+										break;
+									case 'center':
+									default:
+										if ($w > $parameters["width"]) {
+											$crop_from_offset_x = ceil(($w - $parameters["width"])/2);
+										} else {
+											if ($h > $parameters["height"]) {
+												$crop_from_offset_y = ceil(($h - $parameters["height"])/2);
+											}
 										}
-									}
-									break;
+										break;
+								}
 							}
 							if (!$this->handle->cropImage($parameters["width"], $parameters["height"], $crop_w_edge + $crop_from_offset_x, $crop_h_edge + $crop_from_offset_y )) {
 								$this->postError(1610, _t("Error during crop operation"), "WLPlugImagick->transform()");
@@ -789,18 +863,18 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 		}
 	}
 	# ----------------------------------------------------------
-	public function write($filepath, $mimetype) {
+	public function write($ps_filepath, $mimetype) {
 		if (!$this->handle) { return false; }
-		if(strpos($filepath, ':') && (caGetOSFamily() != OS_WIN32)) {
+		if(strpos($ps_filepath, ':') && (caGetOSFamily() != OS_WIN32)) {
 			$this->postError(1610, _t("Filenames with colons (:) are not allowed"), "WLPlugImagick->write()");
 			return false;
 		}
 		if ($mimetype == "image/tilepic") {
 			if ($this->properties["mimetype"] == "image/tilepic") {
-				copy($this->filepath, $filepath);
+				copy($this->filepath, $ps_filepath);
 			} else {
 				$tp = new TilepicParser();
-				if (!($properties = $tp->encode($this->filepath, $filepath, 
+				if (!($properties = $tp->encode($this->filepath, $ps_filepath, 
 					array(
 						"tile_width" => $this->properties["tile_width"],
 						"tile_height" => $this->properties["tile_height"],
@@ -845,7 +919,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 			}
 			
 			# write the file
-			if ( !$this->handle->writeImage($filepath.".".$ext ) ) {
+			if ( !$this->handle->writeImage($ps_filepath.".".$ext ) ) {
 				$this->postError(1610, _t("Error writing file"), "WLPlugImagick->write()");
 				return false;
 			}
@@ -854,7 +928,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 			$this->properties["mimetype"] = $mimetype;
 			$this->properties["typename"] = $this->handle->getImageFormat();
 			
-			return $filepath.".".$ext;
+			return $ps_filepath.".".$ext;
 		}
 	}
 	# ------------------------------------------------
@@ -975,6 +1049,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 			$this->properties["quality"] = "";
 			$this->properties["mimetype"] = $this->_getMagickImageMimeType($this->handle);
 			$this->properties["typename"] = $this->handle->getImageFormat();
+			$this->properties["faces"] = $this->opa_faces;
 			return 1;
 		}
 		return false;
@@ -988,6 +1063,7 @@ class WLPlugMediaImagick Extends WLPlug Implements IWLPlugMedia {
 		
 		$this->metadata = array();
 		$this->errors = array();
+		$this->opa_faces = null;
 	}
 	# ------------------------------------------------
 	public function cleanup() {

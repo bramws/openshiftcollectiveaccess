@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -391,7 +391,9 @@ class ca_relationship_types extends BundlableLabelableBaseModelWithAttributes {
 	 * @return string The name of a table relating the specified tables 
 	 */
 	 public function getRelationshipTypeTable($ps_table1, $ps_table2) {
-	 	switch(sizeof($va_path = array_keys($this->getAppDatamodel()->getPath($ps_table1, $ps_table2)))) {
+	 	$va_path = array_keys($this->getAppDatamodel()->getPath($ps_table1, $ps_table2));
+	 	switch(sizeof($va_path)) {
+	 		case 2:
 			case 3:
 				return $va_path[1];
 				break;

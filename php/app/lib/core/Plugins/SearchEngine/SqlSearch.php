@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010-2011 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -75,25 +75,7 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 	//
 	// TODO: Obviously these are specific to English. We need to add stop words for other languages.
 	//
-	static $s_stop_words = array(
-		"a", "about", "above", "above", "across", "after", "afterwards", "again", "against", "all", "almost", "alone", "along", "already", "also","although","always",
-		"am","among", "amongst", "amoungst", "amount",  "an", "and", "another", "any","anyhow","anyone","anything","anyway", "anywhere", "are", "around", 
-		"as",  "at", "back","be","became", "because","become","becomes", "becoming", "been", "before", "beforehand", "behind", "being", "below", "beside", 
-		"besides", "between", "beyond", "bill", "both", "bottom","but", "by", "call", "can", "cannot", "cant", "co", "con", "could", "couldnt", "cry", "de", "describe", 
-		"detail", "do", "done", "down", "due", "during", "each", "eg", "eight", "either", "eleven","else", "elsewhere", "empty", "enough", "etc", "even", "ever", "every", 
-		"everyone", "everything", "everywhere", "except", "few", "fifteen", "fify", "fill", "find", "fire", "first", "five", "for", "former", "formerly", "forty", "found", "four", 
-		"from", "front", "full", "further", "get", "give", "go", "had", "has", "hasnt", "have", "he", "hence", "her", "here", "hereafter", "hereby", "herein", "hereupon", "hers", 
-		"herself", "him", "himself", "his", "how", "however", "hundred", "ie", "if", "in", "inc", "indeed", "interest", "into", "is", "it", "its", "itself", "keep", "last", "latter", 
-		"latterly", "least", "less", "ltd", "made", "many", "may", "me", "meanwhile", "might", "mill", "mine", "more", "moreover", "most", "mostly", "move", "much", 
-		"must", "my", "myself", "name", "namely", "neither", "never", "nevertheless", "next", "nine", "no", "nobody", "none", "noone", "nor", "not", "nothing", "now", 
-		"nowhere", "of", "off", "often", "on", "once", "one", "only", "onto", "or", "other", "others", "otherwise", "our", "ours", "ourselves", "out", "over", "own","part", 
-		"per", "perhaps", "please", "put", "rather", "re", "same", "see", "seem", "seemed", "seeming", "seems", "serious", "several", "she", "should", "show", "side", 
-		"since", "sincere", "six", "sixty", "so", "some", "somehow", "someone", "something", "sometime", "sometimes", "somewhere", "still", "such", "system", "take", 
-		"ten", "than", "that", "the", "their", "them", "themselves", "then", "thence", "there", "thereafter", "thereby", "therefore", "therein", "thereupon", "these", "they", 
-		"thickv", "thin", "third", "this", "those", "though", "three", "through", "throughout", "thru", "thus", "to", "together", "too", "top", "toward", "towards", "twelve", 
-		"twenty", "two", "un", "under", "until", "up", "upon", "us", "very", "via", "was", "we", "well", "were", "what", "whatever", "when", "whence", "whenever", "where", 
-		"whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "whoever", "whole", "whom", "whose",
-		"why", "will", "with", "within", "without", "would", "yet", "you", "your", "yours", "yourself", "yourselves", "the");
+	static $s_stop_words = array("a", "an", "the", "of", "to");
 	
 	# -------------------------------------------------------
 	public function __construct() {
@@ -253,8 +235,11 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 			if (is_array($va_filters) && sizeof($va_filters)) {
 				foreach($va_filters as $va_filter) {
 					$va_tmp = explode('.', $va_filter['field']);
-					$va_path = $this->opo_datamodel->getPath($vs_table_name, $va_tmp[0]);
 					
+					$va_path = array();
+					if ($va_tmp[0] != $vs_table_name) {
+						$va_path = $this->opo_datamodel->getPath($vs_table_name, $va_tmp[0]);
+					} 
 					if (sizeof($va_path)) {
 						$vs_last_table = null;
 						// generate related joins
@@ -289,8 +274,10 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 			}
 			
 			$vs_sql = "
-				SELECT {$vs_pk} row_id 
+				SELECT {$vs_table_name}.{$vs_pk} row_id 
 				FROM {$vs_table_name}
+				{$vs_join_sql}
+				{$vs_where_sql}
 			";
 			$qr_res = $this->opo_db->query($vs_sql);
 		} else {
@@ -304,7 +291,10 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 			if (is_array($va_filters) && sizeof($va_filters)) {
 				foreach($va_filters as $va_filter) {
 					$va_tmp = explode('.', $va_filter['field']);
-					$va_path = $this->opo_datamodel->getPath($vs_table_name, $va_tmp[0]);
+					$va_path = array();
+					if ($va_tmp[0] != $vs_table_name) {
+						$va_path = $this->opo_datamodel->getPath($vs_table_name, $va_tmp[0]);
+					} 
 					if (sizeof($va_path)) {
 						$vs_last_table = null;
 						// generate related joins
@@ -431,12 +421,11 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 				if (is_null($va_old_signs[$vn_i])) {	// is the sign for a particular query is null then OR is (it is "neither required nor prohibited")
 					$vs_op = 'OR';
 				} else {
-					$vs_op = ($va_old_signs[$vn_i]) ? 'AND' : 'NOT';	// true sign indicated "required" (AND) operation, false indicated "prohibited" (NOT) operation
+					$vs_op = ($va_old_signs[$vn_i] === false) ? 'NOT' : 'AND';	// true sign indicated "required" (AND) operation, false indicated "prohibited" (NOT) operation
 				}
 			}
 			if ($vn_i == 0) { $vs_op = 'OR'; }
 			
-	
 			switch(get_class($o_lucene_query_element)) {
 				case 'Zend_Search_Lucene_Search_Query_Boolean':
 					$this->_createTempTable('ca_sql_search_temp_'.$pn_level);
@@ -758,8 +747,8 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 						} else {
 							if ($vs_table && $vs_field) {
 							$t_table = $this->opo_datamodel->getInstanceByTableName($vs_table, true);
-							$vs_table_num = $t_table->tableNum();
 							if ($t_table) {
+								$vs_table_num = $t_table->tableNum();
 								if (is_numeric($vs_field)) {
 									$vs_fld_num = $vs_field;
 								} else {
@@ -786,25 +775,48 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 														}
 													}
 													$vs_raw_term = join(' ', $va_raw_terms);
-													if ($this->opo_tep->parse($vs_raw_term)) {
-														$va_dates = $this->opo_tep->getHistoricTimestamps();
-														$vs_direct_sql_query = "
-															SELECT ca.row_id, 1
-															FROM ca_attribute_values cav
-															INNER JOIN ca_attributes AS ca ON ca.attribute_id = cav.attribute_id
-															^JOIN
-															WHERE
-																(cav.element_id = ".intval($vs_fld_num).") AND (ca.table_num = ?)
-																AND
-																(
-																	(cav.value_decimal1 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
-																	OR
-																	(cav.value_decimal2 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
-																	OR
-																	(cav.value_decimal1 <= ".floatval($va_dates['start'])." AND cav.value_decimal2 >= ".floatval($va_dates['end']).")	
-																)
-																
-														";
+													$vb_exact = ($vs_raw_term{0} == "#") ? true : false;	// dates prepended by "#" are considered "exact" or "contained - the matched dates must be wholly contained by the search term
+													if ($vb_exact) {
+														$vs_raw_term = substr($vs_raw_term, 1);
+														if ($this->opo_tep->parse($vs_raw_term)) {
+															$va_dates = $this->opo_tep->getHistoricTimestamps();
+															$vs_direct_sql_query = "
+																SELECT ca.row_id, 1
+																FROM ca_attribute_values cav
+																INNER JOIN ca_attributes AS ca ON ca.attribute_id = cav.attribute_id
+																^JOIN
+																WHERE
+																	(cav.element_id = ".intval($vs_fld_num).") AND (ca.table_num = ?)
+																	AND
+																	(
+																		(cav.value_decimal1 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
+																		AND
+																		(cav.value_decimal2 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
+																	)
+																	
+															";
+														}
+													} else {
+														if ($this->opo_tep->parse($vs_raw_term)) {
+															$va_dates = $this->opo_tep->getHistoricTimestamps();
+															$vs_direct_sql_query = "
+																SELECT ca.row_id, 1
+																FROM ca_attribute_values cav
+																INNER JOIN ca_attributes AS ca ON ca.attribute_id = cav.attribute_id
+																^JOIN
+																WHERE
+																	(cav.element_id = ".intval($vs_fld_num).") AND (ca.table_num = ?)
+																	AND
+																	(
+																		(cav.value_decimal1 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
+																		OR
+																		(cav.value_decimal2 BETWEEN ".floatval($va_dates['start'])." AND ".floatval($va_dates['end']).")
+																		OR
+																		(cav.value_decimal1 <= ".floatval($va_dates['start'])." AND cav.value_decimal2 >= ".floatval($va_dates['end']).")	
+																	)
+																	
+															";
+														}
 													}
 													break;
 												case 4:		// geocode
@@ -1413,7 +1425,7 @@ class WLPlugSearchEngineSqlSearch extends BaseSearchPlugin implements IWLPlugSea
 		if (sizeof($va_words)) {
 			$va_quoted_words = array();
 			foreach($va_words as $vs_word) {
-				$va_quoted_words[] = "'".$this->opo_db->escape($vs_word)."'";
+				$va_quoted_words[] = $this->opo_db->escape($vs_word);
 			}
 			$qr_res = $this->opo_db->query("
 				SELECT swi.row_id

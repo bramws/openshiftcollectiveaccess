@@ -33,7 +33,7 @@
 	$t_subject							= $this->getVar('t_subject');
 	
 ?>
-<div id="<?php print $vs_id_prefix.$vn_table_num.'_user_groups'; ?>">
+<div id="<?php print $vs_id_prefix.$vn_table_num.'_settings'; ?>">
 	<div class="bundleContainer">
 		<div class="caItemList settingsBundle">
 <?php 

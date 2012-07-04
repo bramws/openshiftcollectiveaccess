@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2010 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -28,18 +28,17 @@
  	$t_lot 				= $this->getVar('t_subject');
 	$vn_lot_id 			= $this->getVar('subject_id');
 
-	$vb_can_create		= $this->request->user->canDoAction('can_create_ca_object_lots');
-	$vb_can_edit		= $this->request->user->canDoAction('can_edit_ca_object_lots');
-	$vb_can_delete		= $this->request->user->canDoAction('can_delete_ca_object_lots');
-
-	$vb_print_buttons = (intval($vn_lot_id) > 0 ? $vb_can_edit : $vb_can_create);
+	$vb_can_edit	 	= $t_lot->isSaveable($this->request);
+	$vb_can_delete		= $t_lot->isDeletable($this->request);
 	
-	print $vs_control_box = caFormControlBox(
-		($vb_print_buttons ? caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'ObjectLotEditorForm') : '').' '.
-		($vb_print_buttons ? caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/object_lots', 'ObjectLotEditor', 'Edit/'.$this->request->getActionExtra(), array('lot_id' => $vn_lot_id)) : ''),
-		'', 
-		((intval($vn_lot_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/object_lots', 'ObjectLotEditor', 'Delete/'.$this->request->getActionExtra(), array('lot_id' => $vn_lot_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'ObjectLotEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/object_lots', 'ObjectLotEditor', 'Edit/'.$this->request->getActionExtra(), array('lot_id' => $vn_lot_id)),
+			'', 
+			((intval($vn_lot_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/object_lots', 'ObjectLotEditor', 'Delete/'.$this->request->getActionExtra(), array('lot_id' => $vn_lot_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -51,7 +50,7 @@
 									
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='lot_id' value='<?php print $vn_lot_id; ?>'/>
 		</form>

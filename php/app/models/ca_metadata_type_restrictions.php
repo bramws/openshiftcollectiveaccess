@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2010 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -112,6 +112,13 @@ BaseModel::$s_ca_models_definitions['ca_metadata_type_restrictions'] = array(
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Type'), 'DESCRIPTION' => _t('Type of item to bind element to.')
+		),
+		'include_subtypes' => array(
+				'FIELD_TYPE' => FT_BIT, 'DISPLAY_TYPE' => DT_CHECKBOXES, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '0',
+				'LABEL' => _t('Include subtypes in restriction?'), 'DESCRIPTION' => _t('???')
 		),
 		'element_id' => array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_SELECT, 

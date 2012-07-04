@@ -37,6 +37,17 @@
  		public function Edit() {
  			$t_user = $this->getUserObject();
 			
+			$va_profile_prefs = $t_user->getValidPreferences('profile');
+ 			if (is_array($va_profile_prefs) && sizeof($va_profile_prefs)) {
+ 				$va_elements = array();
+				foreach($va_profile_prefs as $vs_pref) {
+					$va_pref_info = $t_user->getPreferenceInfo($vs_pref);
+					$va_elements[$vs_pref] = array('element' => $t_user->preferenceHtmlFormElement($vs_pref), 'info' => $va_pref_info, 'label' => $va_pref_info['label']);
+				}
+				
+				$this->view->setVar("profile_settings", $va_elements);
+			}
+ 			
  			$this->render('user_edit_html.php');
  		}
  		# -------------------------------------------------------
@@ -115,6 +126,18 @@
 							continue;
 						}
 					}
+					
+					// Save profile prefs
+					$va_profile_prefs = $t_user->getValidPreferences('profile');
+					if (is_array($va_profile_prefs) && sizeof($va_profile_prefs)) {
+						
+						foreach($va_profile_prefs as $vs_pref) {
+							$t_user->setPreference($vs_pref, $this->request->getParameter('pref_'.$vs_pref, pString));
+						}
+						
+						$t_user->update();
+					}
+					
 
 					$this->notification->addNotification($vs_message, __NOTIFICATION_TYPE_INFO__);
 				}

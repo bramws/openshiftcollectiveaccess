@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -368,12 +368,12 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 		if (!isset($pa_options['returnHierarchyLevels'])) { $pa_options['returnHierarchyLevels'] = false; }
 		if ((isset($pa_options['directChildrenOnly']) && $pa_options['directChildrenOnly'])) { $pa_options['returnHierarchyLevels'] = false; }
 	
-		$vs_cache_key = md5($vn_list_id.'/'.(int)$pa_options['returnHierarchyLevels'].'/'.(int)$pa_options['directChildrenOnly'].'/'.(int)$pa_options['item_id'].'/'.(int)$pa_options['type_id'].'/'.(int)$pa_options['includeSelf'].'/'.(int)$pa_options['type_id'].'/'.(int)$pa_options['extractValuesByUserLocale'].'/'.$pa_options['sort']);
+		$vs_cache_key = caMakeCacheKeyFromOptions(array_merge($pa_options, array('list_id' => $vn_list_id)));
+		
 		if (is_array(ca_lists::$s_list_item_cache[$vs_cache_key])) {
 			return(ca_lists::$s_list_item_cache[$vs_cache_key]);
 		}
 		$t_list = new ca_lists($vn_list_id);
-		
 		$pn_type_id = isset($pa_options['type_id']) ? (int)$pa_options['type_id'] : null;
 		$pn_sort = isset($pa_options['sort']) ? (int)$pa_options['sort'] : $t_list->get('default_sort');
 		
@@ -383,8 +383,7 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 		
 		$t_list_item = new ca_list_items($pn_item_id);
 		if (!$t_list_item->getPrimaryKey() || ($t_list_item->get('list_id') != $vn_list_id)) { return null; }
-		$va_items = array();
-		
+
 		$vs_hier_sql = '';
 		if ($t_list_item->getPrimaryKey()) {
 			$vs_hier_sql = " AND ((cli.hier_left >= ".((int)$t_list_item->get('hier_left')).") AND (cli.hier_right <= ".((int)$t_list_item->get('hier_right'))."))";
@@ -433,6 +432,7 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 			$qr_res = $o_db->query($vs_sql, (int)$vn_list_id);
 			
 			$va_seen_locales = array();
+			$va_items = array();
 			while($qr_res->nextRow()) {
 				$vn_item_id = $qr_res->get('item_id');
 				if ((isset($pa_options['idsOnly']) && $pa_options['idsOnly'])) {
@@ -506,7 +506,7 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 			}
 			
 			$pa_sorted_items = array();
-			if (isset($pa_options['extractValuesByUserLocale']) && $pa_options['extractValuesByUserLocale']) {
+			if (is_array($va_items) && (isset($pa_options['extractValuesByUserLocale']) && $pa_options['extractValuesByUserLocale'])) {
 				//$va_items = caExtractValuesByUserLocale($va_items);
 				$va_proc_items = array();
 				foreach($va_items as $vn_parent_id => $va_item) {
@@ -997,18 +997,19 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 	/**
 	 * Returns HTML <select> element containing the specified list, or portion of the list.
 	 *
-	 * @param $pm_list_name_or_id mixed -
-	 * @param $ps_name string -
-	 * @param $pa_attributes array -
-	 * @param $pa_options array - array of options. Valid options include:
-	 * 	childrenOnlyForItemID - if set only items below item_id in the list item hierarchy are returned. Default (null) is to return all items in the list.
-	 * 	directChildrenOnly - if set only items with item_id=childrenOnlyForItemID as parent in the list item hierarchy are returned. Default (null) is to return all items in the list.
-	 *  nullOption - if set then a "null" (no value) option is available labeled with the value passed in this option
-	 *  additionalOptions - an optional array of options that will be passed through to caHTMLSelect; keys are display labels and values are used as option values
-	 *  value - if set, the <select> will have default selection set to the item whose *value* matches the option value. If none is set then the first item in the list will be selected
-	 *  disabledOptions - optional array of item values to be disabled in the select. Disabled items cannot be selected by the user
-	 *  key - ca_list_item field to be used as value for the <select> element list; can be set to either item_id or item_value; default is item_id
-	 *	width - the display width of the list in characters or pixels
+	 * @param mixed $pm_list_name_or_id
+	 * @param string $ps_name
+	 * @param array $pa_attributes 
+	 * @param array $pa_options Array of options. Valid options include:
+	 * 	childrenOnlyForItemID = if set only items below item_id in the list item hierarchy are returned. Default (null) is to return all items in the list.
+	 * 	directChildrenOnly = if set only items with item_id=childrenOnlyForItemID as parent in the list item hierarchy are returned. Default (null) is to return all items in the list.
+	 *  nullOption = if set then a "null" (no value) option is available labeled with the value passed in this option
+	 *  additionalOptions = an optional array of options that will be passed through to caHTMLSelect; keys are display labels and values are used as option values
+	 *  value = if set, the <select> will have default selection set to the item whose *value* matches the option value. If none is set then the first item in the list will be selected
+	 *  disabledOptions = optional array of item values to be disabled in the select. Disabled items cannot be selected by the user
+	 *  key = ca_list_item field to be used as value for the <select> element list; can be set to either item_id or item_value; default is item_id
+	 *	width = the display width of the list in characters or pixels
+	 *  limitToItemsWithID =
 	 * 
 	 * @return string - HTML code for the <select> element; empty string if the list is empty
 	 */
@@ -1039,6 +1040,8 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 		if (!in_array($pa_options['key'], array('item_id', 'item_value'))) {
 			$pa_options['key'] = 'item_id';
 		}
+		
+		if (!isset($pa_options['limitToItemsWithID']) || !is_array($pa_options['limitToItemsWithID']) || !sizeof($pa_options['limitToItemsWithID'])) { $pa_options['limitToItemsWithID'] = null; }
 	
 		if (isset($pa_options['nullOption']) && $pa_options['nullOption']) {
 			$va_options[''] = $pa_options['nullOption'];
@@ -1047,6 +1050,8 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 		$va_colors = array();
 		$vn_default_val = null;
 		foreach($va_list_items as $vn_item_id => $va_item) {
+			if (is_array($pa_options['limitToItemsWithID']) && !in_array($vn_item_id, $pa_options['limitToItemsWithID'])) { continue; }
+			
 			$va_options[$va_item[$pa_options['key']]] = str_repeat('&nbsp;', intval($va_item['LEVEL']) * 3).' '.$va_item['name_singular'];
 			if (!$va_item['is_enabled']) { $va_disabled_options[$va_item[$pa_options['key']]] = true; }
 			$va_colors[$vn_item_id] = $va_item['color'];
@@ -1092,7 +1097,9 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 					if ($pa_options['value'] == $vm_value) {
 						$va_attributes['checked'] = '1';
 					}
-					
+					if (isset($pa_options['readonly']) && ($pa_options['readonly'])) {
+						$va_attributes['disabled'] = 1;
+					}
 					$vs_buf .= "<td>".caHTMLRadioButtonInput($ps_name, $va_attributes, $pa_options)." {$vs_label}</td>";
 					$vn_c++;
 					
@@ -1136,6 +1143,9 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 				if ($vb_is_checked) {
 					$pa_attributes['checked'] = 1;
 				}
+				if (isset($pa_options['readonly']) && ($pa_options['readonly'])) {
+					$pa_attributes['disabled'] = 1;
+				}
 				return caHTMLCheckboxInput($ps_name, $pa_attributes, $pa_options);
 				break;
 			case 'checklist':
@@ -1147,6 +1157,9 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 					
 					$va_attributes = array('value' => $vm_value);
 					if (isset($va_disabled_options[$vm_value]) && $va_disabled_options[$vm_value]) {
+						$va_attributes['disabled'] = 1;
+					}
+					if (isset($pa_options['readonly']) && ($pa_options['readonly'])) {
 						$va_attributes['disabled'] = 1;
 					}
 					if (is_array($pa_options['value']) && in_array($vm_value, $pa_options['value']) ) { $va_attributes['checked'] = '1'; }
@@ -1284,6 +1297,9 @@ class ca_lists extends BundlableLabelableBaseModelWithAttributes {
 				break;
 			default:
 				if (!sizeof($va_options)) { return ''; }	// return empty string if list has no values
+				if (isset($pa_options['readonly']) && ($pa_options['readonly'])) {
+					$pa_attributes['disabled'] = 1;
+				}
 				return caHTMLSelect($ps_name, $va_options, $pa_attributes, array_merge($pa_options, array('contentArrayUsesKeysForValues' => true, 'colors' => $va_colors, 'height' => null)));
 				break;
 		}

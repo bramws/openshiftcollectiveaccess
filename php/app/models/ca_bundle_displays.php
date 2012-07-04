@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010-2011 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -415,6 +415,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 	 *		returnAllAvailableIfEmpty = if set to true then the list of all available bundles will be returned if the currently loaded display has no placements, or if there is no display loaded
 	 *		table = if using the returnAllAvailableIfEmpty option and you expect a list of available bundles to be returned if no display is loaded, you must specify the table the bundles are intended for use with with this option. Either the table name or number may be used.
 	 *		user_id = if specified then placements are only returned if the user has at least read access to the display
+	 *		settingsOnly = if true the settings forms are omitted and only setting values are returned; default is false
 	 * @return array List of placements in display order. Array is keyed on bundle name. Values are arrays with the following keys:
 	 *		placement_id = primary key of ca_bundle_display_placements row - a unique id for the placement
 	 *		bundle_name = bundle name (a code - not for display)
@@ -775,6 +776,11 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 		);
 		foreach($t_instance->getFormFields() as $vs_f => $va_info) {
 			if (isset($va_info['DONT_USE_AS_BUNDLE']) && $va_info['DONT_USE_AS_BUNDLE']) { continue; }
+			if ($t_instance->getFieldInfo($vs_f, 'ALLOW_BUNDLE_ACCESS_CHECK')) {
+				if (caGetBundleAccessLevel($vs_table, $vs_f) == __CA_BUNDLE_ACCESS_NONE__) {
+					continue;
+				}
+			}
 			
 			$vs_bundle = $vs_table.'.'.$vs_f;
 			$vs_display = "<div id='bundleDisplayEditorBundle_{$vs_table}_{$vs_f}'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
@@ -825,7 +831,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 				'displayType' => DT_FIELD,
 				'width' => 6, 'height' => 1,
 				'takesLocale' => false,
-				'default' => 100,
+				'default' => 2048,
 				'label' => _t('Maximum length'),
 				'description' => _t('Maximum length, in characters, of displayed information.')
 			)
@@ -833,6 +839,9 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 		foreach($va_element_codes as $vn_element_id => $vs_element_code) {
 			if (!is_null($va_all_elements[$vn_element_id]['settings']['canBeUsedInDisplay'] ) && !$va_all_elements[$vn_element_id]['settings']['canBeUsedInDisplay']) { continue; }
 			$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
+			if (caGetBundleAccessLevel($vs_table, $vs_element_code) == __CA_BUNDLE_ACCESS_NONE__) {
+				continue;	
+			}
 			
 			if ($va_all_elements[$vn_element_id]['datatype'] == 3) {	// list
 				$va_even_more_settings = array(
@@ -878,117 +887,125 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 			}
 		}
 		
-		// get preferred labels for this table
-		$va_additional_settings = array(
-			'format' => array(
-				'formatType' => FT_TEXT,
-				'displayType' => DT_FIELD,
-				'width' => 35, 'height' => 5,
-				'takesLocale' => false,
-				'default' => '',
-				'label' => _t('Display format'),
-				'description' => _t('Template used to format output.')
-			),
-			'delimiter' => array(
-				'formatType' => FT_TEXT,
-				'displayType' => DT_FIELD,
-				'width' => 35, 'height' => 1,
-				'takesLocale' => false,
-				'default' => '',
-				'label' => _t('Delimiter'),
-				'description' => _t('Text to place in-between repeating values.')
-			),
-			'maximum_length' => array(
-				'formatType' => FT_NUMBER,
-				'displayType' => DT_FIELD,
-				'width' => 6, 'height' => 1,
-				'takesLocale' => false,
-				'default' => 100,
-				'label' => _t('Maximum length'),
-				'description' => _t('Maximum length, in characters, of displayed information.')
-			)
-		);
-		$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
 		
-		$vs_bundle = $vs_table.'.preferred_labels';
-		$va_additional_settings['format']['helpText'] = $this->getTemplatePlaceholderDisplayListForBundle($vs_bundle);
-		
-		$vs_display = "<div id='bundleDisplayEditorBundle_{$vs_table}_preferred_labels'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
-		$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
-			'bundle' => $vs_bundle,
-			'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
-			'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
-			'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
-			'settings' => $va_additional_settings
-		);
-		
-		if ($vb_show_tooltips) {
-			TooltipManager::add(
-				"#bundleDisplayEditorBundle_{$vs_table}_preferred_labels",
-				"<h2>{$vs_label}</h2>{$vs_description}"
-			);
-		}
-		
-		// get non-preferred labels for this table
-		$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
-		
-		$vs_bundle = $vs_table.'.nonpreferred_labels';
-		$va_additional_settings['format']['helpText'] = $this->getTemplatePlaceholderDisplayListForBundle($vs_bundle);
-		$vs_display = "<div id='bundleDisplayEditorBundle_{$vs_table}_nonpreferred_labels'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
-		$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
-			'bundle' => $vs_bundle,
-			'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
-			'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
-			'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
-			'settings' => $va_additional_settings
-		);
-			
-		if ($vb_show_tooltips) {	
-			TooltipManager::add(
-				"#bundleDisplayEditorBundle_{$vs_table}_nonpreferred_labels",
-				"<h2>{$vs_label}</h2>{$vs_description}"
-			);
-		}
-		
-		// get object representations (objects only, of course)
-		if ($vs_table == 'ca_objects') {
+		if (caGetBundleAccessLevel($vs_table, "preferred_labels") != __CA_BUNDLE_ACCESS_NONE__) {
+			// get preferred labels for this table
 			$va_additional_settings = array(
-				'display_mode' => array(
+				'format' => array(
 					'formatType' => FT_TEXT,
-					'displayType' => DT_SELECT,
+					'displayType' => DT_FIELD,
+					'width' => 35, 'height' => 5,
+					'takesLocale' => false,
+					'default' => '',
+					'label' => _t('Display format'),
+					'description' => _t('Template used to format output.')
+				),
+				'delimiter' => array(
+					'formatType' => FT_TEXT,
+					'displayType' => DT_FIELD,
 					'width' => 35, 'height' => 1,
 					'takesLocale' => false,
 					'default' => '',
-					'options' => array(
-						_t('Media') => 'media',
-						_t('URL') => 'url'
-					),
-					'label' => _t('Output mode'),
-					'description' => _t('Determines if value used is URL of media or the media itself.')
-				)		
+					'label' => _t('Delimiter'),
+					'description' => _t('Text to place in-between repeating values.')
+				),
+				'maximum_length' => array(
+					'formatType' => FT_NUMBER,
+					'displayType' => DT_FIELD,
+					'width' => 6, 'height' => 1,
+					'takesLocale' => false,
+					'default' => 100,
+					'label' => _t('Maximum length'),
+					'description' => _t('Maximum length, in characters, of displayed information.')
+				)
 			);
-		
-			$o_media_settings = new MediaProcessingSettings('ca_object_representations', 'media');
-			$va_versions = $o_media_settings->getMediaTypeVersions('*');
+			$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
 			
-			foreach($va_versions as $vs_version => $va_version_info) {
-				$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
-				
-				$vs_bundle = 'ca_object_representations.media.'.$vs_version;
-				$vs_display = "<div id='bundleDisplayEditorBundle_ca_object_representations_media_{$vs_version}'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
-				$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
-					'bundle' => $vs_bundle,
-					'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
-					'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
-					'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
-					'settings' => $va_additional_settings
+			$vs_bundle = $vs_table.'.preferred_labels';
+			$va_additional_settings['format']['helpText'] = $this->getTemplatePlaceholderDisplayListForBundle($vs_bundle);
+			
+			$vs_display = "<div id='bundleDisplayEditorBundle_{$vs_table}_preferred_labels'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
+			$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
+				'bundle' => $vs_bundle,
+				'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
+				'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
+				'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
+				'settings' => $va_additional_settings
+			);
+			
+			if ($vb_show_tooltips) {
+				TooltipManager::add(
+					"#bundleDisplayEditorBundle_{$vs_table}_preferred_labels",
+					"<h2>{$vs_label}</h2>{$vs_description}"
 				);
+			}
+		}
+		
+		if (caGetBundleAccessLevel($vs_table, "nonpreferred_labels") != __CA_BUNDLE_ACCESS_NONE__) {
+			// get non-preferred labels for this table
+			$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
+			
+			$vs_bundle = $vs_table.'.nonpreferred_labels';
+			$va_additional_settings['format']['helpText'] = $this->getTemplatePlaceholderDisplayListForBundle($vs_bundle);
+			$vs_display = "<div id='bundleDisplayEditorBundle_{$vs_table}_nonpreferred_labels'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
+			$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
+				'bundle' => $vs_bundle,
+				'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
+				'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
+				'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
+				'settings' => $va_additional_settings
+			);
 				
-				if ($vb_show_tooltips) {
-					TooltipManager::add(
-						"#bundleDisplayEditorBundle_ca_object_representations_media_{$vs_version}",
-						"<h2>{$vs_label}</h2>{$vs_description}"
+			if ($vb_show_tooltips) {	
+				TooltipManager::add(
+					"#bundleDisplayEditorBundle_{$vs_table}_nonpreferred_labels",
+					"<h2>{$vs_label}</h2>{$vs_description}"
+				);
+			}
+		}
+		
+		
+		if (caGetBundleAccessLevel($vs_table, "ca_object_representations") != __CA_BUNDLE_ACCESS_NONE__) {
+			// get object representations (objects only, of course)
+			if ($vs_table == 'ca_objects') {
+				$va_additional_settings = array(
+					'display_mode' => array(
+						'formatType' => FT_TEXT,
+						'displayType' => DT_SELECT,
+						'width' => 35, 'height' => 1,
+						'takesLocale' => false,
+						'default' => '',
+						'options' => array(
+							_t('Media') => 'media',
+							_t('URL') => 'url'
+						),
+						'label' => _t('Output mode'),
+						'description' => _t('Determines if value used is URL of media or the media itself.')
+					)		
+				);
+			
+				$o_media_settings = new MediaProcessingSettings('ca_object_representations', 'media');
+				$va_versions = $o_media_settings->getMediaTypeVersions('*');
+				
+				foreach($va_versions as $vs_version => $va_version_info) {
+					$t_placement = new ca_bundle_display_placements(null, $va_additional_settings);
+					
+					$vs_bundle = 'ca_object_representations.media.'.$vs_version;
+					$vs_display = "<div id='bundleDisplayEditorBundle_ca_object_representations_media_{$vs_version}'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
+					$va_available_bundles[strip_tags($vs_display)][$vs_bundle] = array(
+						'bundle' => $vs_bundle,
+						'display' => ($vs_format == 'simple') ? $vs_label : $vs_display,
+						'description' => $vs_description = $t_instance->getDisplayDescription($vs_bundle),
+						'settingsForm' => $t_placement->getHTMLSettingForm(array('id' => $vs_bundle.'_0')),
+						'settings' => $va_additional_settings
 					);
+					
+					if ($vb_show_tooltips) {
+						TooltipManager::add(
+							"#bundleDisplayEditorBundle_ca_object_representations_media_{$vs_version}",
+							"<h2>{$vs_label}</h2>{$vs_description}"
+						);
+					}
 				}
 			}
 		}
@@ -999,7 +1016,8 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 		foreach(array(
 			'ca_objects', 'ca_object_lots', 'ca_entities', 'ca_places', 'ca_occurrences', 'ca_collections', 'ca_storage_locations', 'ca_loans', 'ca_movements', 'ca_list_items'
 		) as $vs_related_table) {
-			if ($this->getAppConfig()->get($vs_related_table.'_disable')) { continue; }
+			if ($this->getAppConfig()->get($vs_related_table.'_disable')) { continue; }			
+			if (caGetBundleAccessLevel($vs_table, $vs_related_table) == __CA_BUNDLE_ACCESS_NONE__) { continue; }
 			
 			if ($vs_related_table === $vs_table) { 
 				$vs_bundle = $vs_related_table.'.related';
@@ -1349,7 +1367,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 		if ($vs_bundle == 'preferred_labels') {
 			if ($t_label = $t_instance->getLabelTableInstance()) {
 				foreach($t_label->getFormFields() as $vs_field => $va_field_info) {
-					$va_key['^preferred_labels.'.$vs_field] = array(
+					$va_key['^'.$vs_field] = array(
 						'label' => $va_field_info['LABEL'],
 						'description' => $va_field_info['DESCRIPTION']
 					);
@@ -1361,7 +1379,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 		if ($vs_bundle == 'nonpreferred_labels') {
 			if ($t_label = $t_instance->getLabelTableInstance()) {
 				foreach($t_label->getFormFields() as $vs_field => $va_field_info) {
-					$va_key['^nonpreferred_labels.'.$vs_field] = array(
+					$va_key['^'.$vs_field] = array(
 						'label' => $va_field_info['LABEL'],
 						'description' => $va_field_info['DESCRIPTION']
 					);
@@ -1504,28 +1522,33 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 				$va_tmp2[] = $t_instance->primaryKey();
 				
 				$va_ids = $po_result->get(join('.', $va_tmp2), array('returnAsArray' => true));
-				
 				$va_links = array();
 				if (is_array($va_ids)) {
 					$va_display_texts = $po_result->get($vs_bundle_name, array_merge($pa_options, array('returnAsArray' => true)));
-					foreach($va_ids as $vn_i => $vn_id) {
-						$vs_text = array_shift($va_display_texts);
+					
+					
+					foreach($va_display_texts as $vn_i => $va_text) {
 						
-						if (is_array($vs_text)) {
-							if (in_array('hierarchy', $va_tmp)) {
-								$vs_text = join($pa_options['hierarchicalDelimiter'], $vs_text);
+						if (is_array($va_text)) {
+							if (in_array('hierarchy', $va_tmp2)) {
+								$vs_text = array_pop($va_text);
+								$vn_id = $po_result->get($va_tmp2[0].'.'.$t_instance->primaryKey());
 							} else {
-								if (in_array('related', $va_tmp)) {
-									$vs_text = $vs_text[$t_instance->getLabelDisplayField()];
+								if (in_array('related', $va_tmp2)) {
+									$vs_text = $va_text[$t_instance->getLabelDisplayField()];
 								} else {
-									if (is_array($vs_text)) {
-										$vs_text = $vs_text[$t_instance->getLabelDisplayField()];
+									if (is_array($va_text)) {
+										$vs_text = $va_text[$t_instance->getLabelDisplayField()];
 									}
 								}
+								$vn_id = $va_text[$t_instance->primaryKey()];
 							}
+						} else {
+							$vn_id = array_shift($va_ids);
+							$vs_text = $va_text;
 						}
 						
-						$va_links[] = caEditorLink($pa_options['request'], $vs_text, '', $va_tmp[0], $vn_id);
+						$va_links[] = caEditorLink($pa_options['request'], $vs_text, '', $va_tmp2[0], $vn_id);
 					}
 				}
 				$vs_val = join($pa_options['delimiter'], $va_links);

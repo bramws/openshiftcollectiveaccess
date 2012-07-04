@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -79,6 +79,7 @@ BaseModel::$s_ca_models_definitions['ca_places'] = array(
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LIST_CODE' => 'place_sources',
 				'LABEL' => _t('Source'), 'DESCRIPTION' => _t('Administrative source of the place. This value is often used to indicate the administrative sub-division or legacy database from which the place information originates, but can also be re-tasked for use as a simple classification tool if needed.')
 		),
@@ -95,6 +96,7 @@ BaseModel::$s_ca_models_definitions['ca_places'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Place identifier'), 'DESCRIPTION' => _t('Unique identifier for place'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -117,6 +119,7 @@ BaseModel::$s_ca_models_definitions['ca_places'] = array(
 				'FIELD_TYPE' => FT_HISTORIC_DATERANGE, 'DISPLAY_TYPE' => DT_FIELD, 
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'DEFAULT' => '', 'START' => 'lifespan_sdate', 'END' => 'lifespan_edate',
 				'LABEL' => _t('Lifespan'), 'DESCRIPTION' => _t('Lifespan of place (range of dates)')
 		),
@@ -125,6 +128,7 @@ BaseModel::$s_ca_models_definitions['ca_places'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Not accessible to public') => 0,
 					_t('Accessible to public') => 1
@@ -137,6 +141,7 @@ BaseModel::$s_ca_models_definitions['ca_places'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -313,6 +318,7 @@ class ca_places extends BundlableLabelableBaseModelWithAttributes implements IBu
 		parent::initLabelDefinitions();
 		$this->BUNDLES['ca_entities'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related entities'));
 		$this->BUNDLES['ca_objects'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related objects'));
+		$this->BUNDLES['ca_object_lots'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related lots'));
 		$this->BUNDLES['ca_places'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related places'));
 		$this->BUNDLES['ca_collections'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related collections'));
 		$this->BUNDLES['ca_occurrences'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related occurrences'));
@@ -322,6 +328,7 @@ class ca_places extends BundlableLabelableBaseModelWithAttributes implements IBu
 		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
 		
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));
 		
 		$this->BUNDLES['hierarchy_navigation'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Hierarchy navigation'));
 		$this->BUNDLES['hierarchy_location'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Location in hierarchy'));
@@ -459,7 +466,7 @@ class ca_places extends BundlableLabelableBaseModelWithAttributes implements IBu
 	 	}
 	 	$t_list->load($vn_hierarchy_id);
 	 	
-	 	return $t_list->getLabelForDisplay();
+	 	return $t_list->getLabelForDisplay(false);
 	 }
 	# ------------------------------------------------------
 	/**

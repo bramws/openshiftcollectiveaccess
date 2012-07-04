@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -38,6 +38,7 @@ require_once(__CA_LIB_DIR__."/ca/IBundleProvider.php");
 require_once(__CA_LIB_DIR__."/ca/BundlableLabelableBaseModelWithAttributes.php");
 require_once(__CA_MODELS_DIR__."/ca_object_representations.php");
 require_once(__CA_MODELS_DIR__."/ca_objects_x_object_representations.php");
+require_once(__CA_APP_DIR__."/helpers/mediaPluginHelpers.php");
 
 
 BaseModel::$s_ca_models_definitions['ca_objects'] = array(
@@ -69,6 +70,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_HIDDEN, 
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'DEFAULT' => '',
 				'LABEL' => _t('Lot'), 'DESCRIPTION' => _t('Lot this object belongs to; is null if object is not part of a lot.')
 		),
@@ -85,6 +87,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LIST_CODE' => 'object_sources',
 				'LABEL' => _t('Source'), 'DESCRIPTION' => _t('Administrative source of object. This value is often used to indicate the administrative sub-division or legacy database from which the object originates, but can also be re-tasked for use as a simple classification tool if needed.')
 		),
@@ -101,6 +104,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Object identifier'), 'DESCRIPTION' => _t('A unique alphanumeric identifier for this object. This is usually equivalent to the "accession number" in museum settings.'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -125,6 +129,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LIST_CODE' => 'object_acq_types',
 				'LABEL' => _t('Acquisition method'), 'DESCRIPTION' => _t('Indicates method employed to acquire the object.')
 		),
@@ -154,6 +159,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 20, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Extent'), 'DESCRIPTION' => _t('The extent of the object. This is typically the number of discrete items that compose the object represented by this record. It is stored as a whole number (eg. 1, 2, 3...).')
 		),
 		'extent_units' => array(
@@ -161,6 +167,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 20, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Extent units'), 'DESCRIPTION' => _t('Units of extent value. (eg. pieces, items, components, reels, etc.)'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -169,6 +176,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Not accessible to public') => 0,
 					_t('Accessible to public') => 1
@@ -181,6 +189,7 @@ BaseModel::$s_ca_models_definitions['ca_objects'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -363,7 +372,11 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
 	public function delete($pb_delete_related=false){
 		// nuke related representations
 		foreach($this->getRepresentations() as $va_rep){
-			$this->removeRepresentation($va_rep["representation_id"]);
+			// check if representation is in use anywhere else 
+			$qr_res = $this->getDb()->query("SELECT count(*) c FROM ca_objects_x_object_representations WHERE object_id <> ? AND representation_id = ?", (int)$this->getPrimaryKey(), (int)$va_rep["representation_id"]);
+			if ($qr_res->nextRow() && ($qr_res->get('c') == 0)) {
+				$this->removeRepresentation($va_rep["representation_id"]);
+			}
 		}
 
 		return parent::delete($pb_delete_related);
@@ -435,11 +448,16 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
  	 *		checkAccess - synonym for return_with_access
  	 *		.. and options supported by getMediaTag() .. [they are passed through]
- 	 *		
+ 	 *	
+ 	 * @return array An array of information about the linked representations
  	 */
  	public function getRepresentations($pa_versions=null, $pa_version_sizes=null, $pa_options=null) {
  		if (!($vn_object_id = $this->getPrimaryKey())) { return null; }
  		if (!is_array($pa_options)) { $pa_options = array(); }
+ 		
+ 		if (caGetBundleAccessLevel('ca_objects', 'ca_object_representations') == __CA_BUNDLE_ACCESS_NONE__) {
+			return null;
+		}
  		
  		if (!is_array($pa_versions)) { 
  			$pa_versions = array('preview170');
@@ -462,12 +480,12 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  		$o_db = $this->getDb();
  		
  		$qr_reps = $o_db->query("
- 			SELECT caor.representation_id, caor.media, caoor.is_primary, caor.access, caor.status, l.name, caor.locale_id, caor.media_metadata, caor.type_id, caor.idno, caor.idno_sort
+ 			SELECT caor.representation_id, caor.media, caoor.is_primary, caor.access, caor.status, l.name, caor.locale_id, caor.media_metadata, caor.type_id, caor.idno, caor.idno_sort, caor.md5, caor.mimetype, caor.original_filename
  			FROM ca_object_representations caor
  			INNER JOIN ca_objects_x_object_representations AS caoor ON caor.representation_id = caoor.representation_id
  			LEFT JOIN ca_locales AS l ON caor.locale_id = l.locale_id
  			WHERE
- 				caoor.object_id = ? 
+ 				caoor.object_id = ? AND deleted = 0
  				{$vs_is_primary_sql}
  				{$vs_access_sql}
  			ORDER BY
@@ -528,6 +546,7 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	 * @param array $pa_options Array of criteria options to use when selecting representations. Options include: 
  	 *		mimetypes = array of mimetypes to return
  	 *		sortby = if set, representations are return sorted using the criteria in ascending order. Valid values are 'filesize' (sort by file size), 'duration' (sort by length of time-based media)
+ 	 *
  	 * @return array List of representations. Each entry in the list is an associative array of the same format as returned by getRepresentations() and includes properties, tags and urls for the representation.
  	 */
  	public function findRepresentations($pa_options) {
@@ -578,7 +597,14 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	# Representations
  	# ------------------------------------------------------
  	/**
+ 	 * Returns array containing representation_ids for all representations linked to the currently loaded ca_objects row
  	 *
+ 	 * @param array $pa_options An array of options. Supported options are:
+ 	 *		return_primary_only - If true then only the primary representation will be returned
+ 	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
+ 	 *		checkAccess - synonym for return_with_access
+ 	 *
+ 	 * @return array A list of representation_ids
  	 */
  	public function getRepresentationIDs($pa_options=null) {
  		if (!($vn_object_id = $this->getPrimaryKey())) { return null; }
@@ -594,6 +620,10 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			$vs_is_primary_sql = '';
  		}
  		
+ 		if (!is_array($pa_options['return_with_access']) && is_array($pa_options['checkAccess']) && sizeof($pa_options['checkAccess']) > 0) {
+ 			$pa_options['return_with_access'] = $pa_options['checkAccess'];
+ 		}
+ 		
  		if (is_array($pa_options['return_with_access']) && sizeof($pa_options['return_with_access']) > 0) {
  			$vs_access_sql = ' AND (caor.access IN ('.join(", ", $pa_options['return_with_access']).'))';
  		} else {
@@ -607,7 +637,7 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			FROM ca_object_representations caor
  			INNER JOIN ca_objects_x_object_representations AS caoor ON caor.representation_id = caoor.representation_id
  			WHERE
- 				caoor.object_id = ? 
+ 				caoor.object_id = ? AND caor.deleted = 0
  				{$vs_is_primary_sql}
  				{$vs_access_sql}
  		", (int)$vn_object_id);
@@ -620,11 +650,12 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	}
  	# ------------------------------------------------------
  	/**
- 	 * Returns number of representations attached to the currently loaded object
+ 	 * Returns number of representations attached to the currently loaded ca_objects row
  	 *
  	 * @param array $pa_options Optional array of options. Supported options include:
  	 *		return_with_type - A type to restrict the count to. Can be either an integer type_id or item_code string
  	 *		return_with_access - An array of access values to restrict counts to
+ 	 *		checkAccess - synonym for return_with_access
  	 *
  	 * @return integer The number of representations
  	 */
@@ -643,6 +674,10 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			}
  		} 
  		
+ 		if (!is_array($pa_options['return_with_access']) && is_array($pa_options['checkAccess']) && sizeof($pa_options['checkAccess']) > 0) {
+ 			$pa_options['return_with_access'] = $pa_options['checkAccess'];
+ 		}
+ 		
  		if (is_array($pa_options['return_with_access']) && sizeof($pa_options['return_with_access']) > 0) {
  			$vs_access_sql = ' AND (caor.access IN ('.join(", ", $pa_options['return_with_access']).'))';
  		} else {
@@ -657,7 +692,7 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			INNER JOIN ca_objects_x_object_representations AS caoor ON caor.representation_id = caoor.representation_id
  			LEFT JOIN ca_locales AS l ON caor.locale_id = l.locale_id
  			WHERE
- 				caoor.object_id = ? 
+ 				caoor.object_id = ? AND caor.deleted = 0
  				{$vs_type_sql}
  				{$vs_access_sql}
  		", (int)$vn_object_id);
@@ -668,17 +703,34 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	}
  	# ------------------------------------------------------
  	/**
- 	 * Returns primary representation for the object; versions specified in $pa_versions are returned. See description
- 	 * of getRepresentations() for a description of returned values.
+ 	 * Returns primary representation for the object; versions specified in $pa_versions are included. See description
+ 	 * of ca_objects::getRepresentations() for a description of returned values.
+ 	 *
+ 	 * @param array $pa_versions An array of media versions to include information for. If you omit this then a single version, 'preview170', is assumed by default.
+ 	 * @param array $pa_version_sizes Optional array of sizes to force specific versions to. The array keys are version names; the values are arrays with two keys: 'width' and 'height'; if present these values will be used in lieu of the actual values in the database
+ 	 * @param array $pa_options An optional array of options to use when getting representation information. Supported options are:
+ 	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
+ 	 *		checkAccess - synonym for return_with_access
+ 	 *		.. and options supported by getMediaTag() .. [they are passed through]
+ 	 *
+ 	 * @return array An array of information about the linked representations
  	 */
  	public function getPrimaryRepresentation($pa_versions=null, $pa_version_sizes=null, $pa_options=null) {
  		if (!is_array($pa_options)) { $pa_options = array(); }
- 		$va_reps = $this->getRepresentations($pa_versions, $pa_version_sizes, array_merge($pa_options, array('return_primary_only' => 1)));
- 		return array_pop($va_reps);
+ 		if(is_array($va_reps = $this->getRepresentations($pa_versions, $pa_version_sizes, array_merge($pa_options, array('return_primary_only' => 1))))) {
+ 			return array_pop($va_reps);
+ 		}
+ 		return array();
  	}
  	# ------------------------------------------------------
  	/**
  	 * Returns representation_id of primary representation for the object.
+ 	 *
+ 	 * @param array $pa_options An optional array of options to use when getting representation information. Supported options are:
+ 	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
+ 	 *		checkAccess - synonym for return_with_access
+ 	 *
+ 	 * @return integer A representation_id
  	 */
  	public function getPrimaryRepresentationID($pa_options=null) {
  		if (!is_array($pa_options)) { $pa_options = array(); }
@@ -692,6 +744,12 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  	# ------------------------------------------------------
  	/**
  	 * Returns ca_object_representations instance loaded with primary representation for the current ca_objects row
+ 	 *
+ 	 * @param array $pa_options An optional array of options to use when getting representation information. Supported options are:
+ 	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
+ 	 *		checkAccess - synonym for return_with_access
+ 	 *
+ 	 * @return ca_object_representation A model instance for the primary representation
  	 */
  	public function getPrimaryRepresentationInstance($pa_options=null) {
  		if (!is_array($pa_options)) { $pa_options = array(); }
@@ -700,6 +758,26 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  		$t_rep = new ca_object_representations($vn_rep_id);
  		
  		return ($t_rep->getPrimaryKey()) ? $t_rep : null;
+ 	}
+ 	# ------------------------------------------------------
+ 	/**
+ 	 * Returns representations linked to the currently loaded object in a ObjectRepresentationSearchResult instance. 
+ 	 * Use this if you want to efficiently access information, including attributes, labels and intrinsics, for all representations associated with a given object.
+ 	 *
+ 	 *  @param array $pa_options An optional array of options to use when getting representation information. Supported options are:
+ 	 *		return_primary_only - If true then only the primary representation will be returned
+ 	 *		return_with_access - Set to an array of access values to filter representation through; only representations with an access value in the list will be returned
+ 	 *		checkAccess - synonym for return_with_access
+ 	 *
+ 	 * @return ObjectRepresentationSearchResult Search result containing all representations linked to the currently loaded object
+ 	 */
+ 	public function getRepresentationsAsSearchResult($pa_options=null) {
+ 		$va_representation_ids = $this->getRepresentationIDs($pa_options);
+ 		
+ 		if(is_array($va_representation_ids) && sizeof($va_representation_ids)) {
+ 			return $this->makeSearchResult('ca_object_representations', array_keys($va_representation_ids));
+ 		}
+ 		return null;
  	}
  	# ------------------------------------------------------
  	/** 
@@ -721,6 +799,11 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  		if (!$pn_locale_id) { $pn_locale_id = ca_locales::getDefaultCataloguingLocaleID(); }
  		
  		$t_rep = new ca_object_representations();
+ 		
+ 		if ($this->inTransaction()) {
+ 			$t_rep->setTransaction($this->getTransaction());
+ 		}
+ 		
  		$t_rep->setMode(ACCESS_WRITE);
  		$t_rep->set('type_id', $pn_type_id);
  		$t_rep->set('locale_id', $pn_locale_id);
@@ -759,15 +842,20 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			return false;
  		}
  		
- 		$vs_label = (isset($pa_values['name']) && $pa_values['name']) ? $pa_values['name'] : '['._t('BLANK').']';
- 		
- 		$t_rep->addLabel(array('name' => $vs_label), $pn_locale_id, null, true);
- 		if ($t_rep->numErrors()) {
- 			$this->errors = array_merge($this->errors, $t_rep->errors());
- 			return false;
- 		}
- 		
+ 		if ($t_rep->getPreferredLabelCount() == 0) {
+			$vs_label = (isset($pa_values['name']) && $pa_values['name']) ? $pa_values['name'] : '['._t('BLANK').']';
+			
+			$t_rep->addLabel(array('name' => $vs_label), $pn_locale_id, null, true);
+			if ($t_rep->numErrors()) {
+				$this->errors = array_merge($this->errors, $t_rep->errors());
+				return false;
+			}
+		}
+			
  		$t_oxor = new ca_objects_x_object_representations();
+ 		if ($this->inTransaction()) {
+ 			$t_oxor->setTransaction($this->getTransaction());
+ 		}
  		$t_oxor->setMode(ACCESS_WRITE);
  		$t_oxor->set('object_id', $vn_object_id);
  		$t_oxor->set('representation_id', $t_rep->getPrimaryKey());
@@ -784,16 +872,40 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  			}
  			return false;
  		}
+
+		//
+		// Perform mapping of embedded metadata for newly uploaded representation with respect
+		// to ca_objects and ca_object_representation records
+		//
+		$va_metadata = $t_rep->get('media_metadata', array('binary' => true));
+		if (caExtractEmbeddedMetadata($this, $va_metadata, $pn_locale_id)) {
+			$this->update();
+		}
+		
  		return $t_oxor->getPrimaryKey();
  	}
  	# ------------------------------------------------------
  	/**
+ 	 * Convenience method to edit a representation instance. Allows to you edit a linked representation from a ca_objects instance.
+ 	 * 
+ 	 * @param int representation_id
+ 	 * @param string $ps_media_path
+ 	 * @param int $pn_locale_id
+ 	 * @param int $pn_status
+ 	 * @param int $pn_access
+ 	 * @param bool $pb_is_primary
+ 	 * @param array $pa_values
+ 	 * @param array $pa_options
  	 *
+ 	 * @return bool True on success, false on failure, null if no row has been loaded into the object model 
  	 */
  	public function editRepresentation($pn_representation_id, $ps_media_path, $pn_locale_id, $pn_status, $pn_access, $pb_is_primary, $pa_values=null, $pa_options=null) {
  		if (!($vn_object_id = $this->getPrimaryKey())) { return null; }
  		
  		$t_rep = new ca_object_representations();
+ 		if ($this->inTransaction()) {
+ 			$t_rep->setTransaction($this->getTransaction());
+ 		}
  		if (!$t_rep->load(array('representation_id' => $pn_representation_id))) {
  			$this->postError(750, _t("Representation id=%1 does not exist", $pn_representation_id), "ca_objects->editRepresentation()");
  			return false;
@@ -907,6 +1019,72 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
  		return false;
  	}
  	# ------------------------------------------------------
+ 	/**
+ 	 * Returns number of representations attached to the current object of the specified class. 
+ 	 *
+ 	 * @param string $ps_class The class of representation to return a count for. Valid classes are "image", "audio", "video" and "document"
+ 	 * @param array $pa_options Options for selection of representations to count; same as options for ca_objects::getRepresentations()
+ 	 *
+ 	 * @return int Number of representations
+ 	 */
+ 	public function numberOfRepresentationsOfClass($ps_class, $pa_options=null) {
+ 		return sizeof($this->representationsOfClass($ps_class, $pa_options));
+ 	}
+ 	# ------------------------------------------------------
+ 	/**
+ 	 * Returns number of representations attached to the current object with the specified mimetype. 
+ 	 *
+ 	 * @param string $ps_mimetype The mimetype to return a count for. 
+ 	 * @param array $pa_options Options for selection of representations to count; same as options for ca_objects::getRepresentations()
+ 	 *
+ 	 * @return int Number of representations
+ 	 */
+ 	public function numberOfRepresentationsWithMimeType($ps_mimetype, $pa_options=null) {
+ 		return sizeof($this->representationsWithMimeType($ps_mimetype, $pa_options));
+ 	}
+ 	# ------------------------------------------------------
+ 	/**
+ 	 * Returns information for representations of the specified class attached to the current object. 
+ 	 *
+ 	 * @param string $ps_class The class of representation to return information for. Valid classes are "image", "audio", "video" and "document"
+ 	 * @param array $pa_options Options for selection of representations to return; same as options for ca_objects::getRepresentations()
+ 	 *
+ 	 * @return array An array with information about matching representations, in the same format as that returned by ca_objects::getRepresentations()
+ 	 */
+ 	public function representationsOfClass($ps_class, $pa_options=null) {
+ 		if (!($vs_mimetypes_regex = caGetMimetypesForClass($ps_class, array('returnAsRegex' => true)))) { return array(); }
+ 		
+ 		$va_rep_list = array();
+ 		if (is_array($va_reps = $this->getRepresentations($pa_options))) {
+ 			foreach($va_reps as $vn_rep_id => $va_rep) {
+ 				if (preg_match("!{$vs_mimetypes_regex}!", $va_rep['mimetype'])) {	
+ 					$va_rep_list[$vn_rep_id] = $va_rep;
+ 				}
+ 			}
+ 		}
+ 		return $va_rep_list;
+ 	}
+ 	# ------------------------------------------------------
+ 	/**
+ 	 * Returns information for representations attached to the current object with the specified mimetype. 
+ 	 *
+ 	 * @param string $ps_mimetype The mimetype to return representations for. 
+ 	 * @param array $pa_options Options for selection of representations to return; same as options for ca_objects::getRepresentations()
+ 	 *
+ 	 * @return array An array with information about matching representations, in the same format as that returned by ca_objects::getRepresentations()
+ 	 */
+ 	public function representationsWithMimeType($ps_mimetype, $pa_options=null) {
+ 		$va_rep_list = array();
+ 		if (is_array($va_reps = $this->getRepresentations($pa_options))) {
+ 			foreach($va_reps as $vn_rep_id => $va_rep) {
+ 				if ($ps_mimetype == $va_rep['mimetype']) {	
+ 					$va_rep_list[$vn_rep_id] = $va_rep;
+ 				}
+ 			}
+ 		}
+ 		return $va_rep_list;
+ 	}
+ 	# ------------------------------------------------------
  	#
  	# ------------------------------------------------------
 	/**
@@ -919,41 +1097,78 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
 	 */
 	 public function getHierarchyList($pb_dummy=false) {
 	 	$vn_pk = $this->getPrimaryKey();
-	 	if (!$vn_pk) { return null; }		// have to load a row first
-	 	
-	 	$vs_label = $this->getLabelForDisplay(false);
-	 	$vs_hier_fld = $this->getProperty('HIERARCHY_ID_FLD');
-	 	$vs_parent_fld = $this->getProperty('PARENT_ID_FLD');
-	 	$vn_hier_id = $this->get($vs_hier_fld);
-	 	
-	 	if ($this->get($vs_parent_fld)) { 
-	 		// currently loaded row is not the root so get the root
-	 		$va_ancestors = $this->getHierarchyAncestors();
-	 		if (!is_array($va_ancestors) || sizeof($va_ancestors) == 0) { return null; }
-	 		$t_object = new ca_objects($va_ancestors[0]);
+	 	if (!$vn_pk) { 
+	 		$o_db = new Db();
+	 		if (is_array($va_type_ids = caMergeTypeRestrictionLists($this, array())) && sizeof($va_type_ids)) {
+				$qr_res = $o_db->query("
+					SELECT o.object_id, count(*) c
+					FROM ca_objects o
+					INNER JOIN ca_objects AS p ON p.parent_id = o.object_id
+					WHERE o.parent_id IS NULL AND o.type_id IN (?)
+					GROUP BY o.object_id
+				", array($va_type_ids));
+			} else {
+				$qr_res = $o_db->query("
+					SELECT o.object_id, count(*) c
+					FROM ca_objects o
+					INNER JOIN ca_objects AS p ON p.parent_id = o.object_id
+					WHERE o.parent_id IS NULL
+					GROUP BY o.object_id
+				");
+			}
+	 		$va_hiers = array();
+	 		
+	 		$va_object_ids = $qr_res->getAllFieldValues('object_id');
+	 		$qr_res->seek(0);
+	 		$va_labels = $this->getPreferredDisplayLabelsForIDs($va_object_ids);
+	 		while($qr_res->nextRow()) {
+	 			$va_hiers[$vn_object_id = $qr_res->get('object_id')] = array(
+	 				'object_id' => $vn_object_id,
+	 				'name' => $va_labels[$vn_object_id],
+	 				'hierarchy_id' => $vn_object_id,
+	 				'children' => (int)$qr_res->get('c')
+	 			);
+	 		}
+	 		return $va_hiers;
 	 	} else {
-	 		$t_object =& $this;
-	 	}
-	 	
-	 	$va_children = $t_object->getHierarchyChildren(null, array('idsOnly' => true));
-	 	$va_object_hierarchy_root = array(
-	 		$t_object->get($vs_hier_fld) => array(
-	 			'object_id' => $vn_pk,
-	 			'name' => $vs_label,
-	 			'hierarchy_id' => $vn_hier_id,
-	 			'children' => sizeof($va_children)
-	 		),
-	 		'object_id' => $vn_pk,
-			'name' => $vs_label,
-			'hierarchy_id' => $vn_hier_id,
-			'children' => sizeof($va_children)
-	 	);
-	 	
-	 	return $va_object_hierarchy_root;
+	 		// return specific object as root of hierarchy
+			$vs_label = $this->getLabelForDisplay(false);
+			$vs_hier_fld = $this->getProperty('HIERARCHY_ID_FLD');
+			$vs_parent_fld = $this->getProperty('PARENT_ID_FLD');
+			$vn_hier_id = $this->get($vs_hier_fld);
+			
+			if ($this->get($vs_parent_fld)) { 
+				// currently loaded row is not the root so get the root
+				$va_ancestors = $this->getHierarchyAncestors();
+				if (!is_array($va_ancestors) || sizeof($va_ancestors) == 0) { return null; }
+				$t_object = new ca_objects($va_ancestors[0]);
+			} else {
+				$t_object =& $this;
+			}
+			
+			$va_children = $t_object->getHierarchyChildren(null, array('idsOnly' => true));
+			$va_object_hierarchy_root = array(
+				$t_object->get($vs_hier_fld) => array(
+					'object_id' => $vn_pk,
+					'name' => $vs_label,
+					'hierarchy_id' => $vn_hier_id,
+					'children' => sizeof($va_children)
+				),
+				'object_id' => $vn_pk,
+				'name' => $vs_label,
+				'hierarchy_id' => $vn_hier_id,
+				'children' => sizeof($va_children)
+			);
+				
+	 		return $va_object_hierarchy_root;
+		}
 	}
 	# ------------------------------------------------------
 	/**
 	 * Returns name of hierarchy for currently loaded row or, if specified, row identified by optional $pn_id parameter
+	 *
+	 * @param int $pn_id Optional object_id to return hierarchy name for. If not specified, the currently loaded row is used.
+	 * @return string The name of the hierarchy
 	 */
 	 public function getHierarchyName($pn_id=null) {
 	 	if (!$pn_id) { $pn_id = $this->getPrimaryKey(); }
@@ -962,13 +1177,13 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
 		if (is_array($va_ancestors) && sizeof($va_ancestors)) {
 			$vn_parent_id = array_pop($va_ancestors);
 			$t_object = new ca_objects($vn_parent_id);
-			return $t_object->getLabelForDisplay();
+			return $t_object->getLabelForDisplay(false);
 		} else {			
 			if ($pn_id == $this->getPrimaryKey()) {
-				return $this->getLabelForDisplay();
+				return $this->getLabelForDisplay(true);
 			} else {
 				$t_object = new ca_objects($pn_id);
-				return $t_object->getLabelForDisplay();
+				return $t_object->getLabelForDisplay(true);
 			}
 		}
 	 }
@@ -996,7 +1211,7 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
 			FROM ca_object_representations orep
 			INNER JOIN ca_objects_x_object_representations AS oxor ON oxor.representation_id = orep.representation_id
 			WHERE
-				(oxor.object_id IN (".join(',', $pa_ids).")) AND oxor.is_primary = 1 {$vs_access_where}
+				(oxor.object_id IN (".join(',', $pa_ids).")) AND oxor.is_primary = 1 AND orep.deleted = 0 {$vs_access_where}
 		");
 		
 		$va_media = array();
@@ -1005,14 +1220,51 @@ class ca_objects extends BundlableLabelableBaseModelWithAttributes implements IB
 			foreach($pa_versions as $vs_version) {
 				$va_media_tags['tags'][$vs_version] = $qr_res->getMediaTag('ca_object_representations.media', $vs_version);
 				$va_media_tags['info'][$vs_version] = $qr_res->getMediaInfo('ca_object_representations.media', $vs_version);
+				$va_media_tags['urls'][$vs_version] = $qr_res->getMediaUrl('ca_object_representations.media', $vs_version);
 			}
 			$va_media[$qr_res->get('object_id')] = $va_media_tags;
 		}
 		return $va_media;
 	}
+	# ------------------------------------------------------------------
+	/**
+	 * Returns number of representations attached to each object referenced by object_id in $pa_ids
+	 * 
+	 * @param array $pa_ids indexed array of object_id values to fetch labels for
+	 * @param array $pa_options
+	 * @return array List of representation counts indexed by object_id
+	 */
+	public function getMediaCountsForIDs($pa_ids, $pa_options = null) {
+		if (!is_array($pa_ids) || !sizeof($pa_ids)) { return array(); }
+		if (!is_array($pa_options)) { $pa_options = array(); }
+		$va_access_values = $pa_options["checkAccess"];
+		if (isset($va_access_values) && is_array($va_access_values) && sizeof($va_access_values)) {
+			$vs_access_where = ' AND orep.access IN ('.join(',', $va_access_values).')';
+		}
+		$o_db = $this->getDb();
+		
+		$qr_res = $o_db->query("
+			SELECT oxor.object_id, count(*) c
+			FROM ca_object_representations orep
+			INNER JOIN ca_objects_x_object_representations AS oxor ON oxor.representation_id = orep.representation_id
+			WHERE
+				(oxor.object_id IN (".join(',', $pa_ids).")) AND orep.deleted = 0 {$vs_access_where}
+			GROUP BY oxor.object_id
+		");
+		
+		$va_counts = array();
+		while($qr_res->nextRow()) {
+			$va_counts[$qr_res->get('object_id')] = (int)$qr_res->get('c');
+		}
+		return $va_counts;
+	}
 	# ------------------------------------------------------
 	/**
+	 * Return object_ids for objects with labels exactly matching $ps_name
 	 *
+	 * @param string $ps_name The label value to search for
+	 * @param int $pn_parent_id Optional parent_id. If specified search is restricted to direct children of the specified parent object.
+	 * @return array An array of object_ids
 	 */
 	public function getObjectIDsByName($ps_name, $pn_parent_id=null) {
 		$o_db = $this->getDb();

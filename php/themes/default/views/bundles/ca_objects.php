@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -27,6 +27,7 @@
  */
  
 	$vs_id_prefix 		= $this->getVar('placement_code').$this->getVar('id_prefix');
+	$t_instance 		= $this->getVar('t_instance');
 	$t_item 			= $this->getVar('t_item');			// object
 	$t_item_rel 		= $this->getVar('t_item_rel');
 	$t_subject 			= $this->getVar('t_subject');
@@ -34,6 +35,8 @@
 	$vs_add_label 		= $this->getVar('add_label');
 	$va_rel_types		= $this->getVar('relationship_types');
 
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($t_instance->tableName(), 'ca_objects') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 	// params to pass during occurrence lookup
 	$va_lookup_params = (isset($va_settings['restrict_to_type']) && $va_settings['restrict_to_type']) ? array('type' => $va_settings['restrict_to_type'], 'noSubtypes' => (int)$va_settings['dont_include_subtypes_in_type_restriction']) : array();
 ?>
@@ -51,9 +54,13 @@
 
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_type_id{n}" id="<?php print $vs_id_prefix; ?>_type_id{n}" value="{type_id}"/>
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_id{n}" id="<?php print $vs_id_prefix; ?>_id{n}" value="{id}"/>
-			
+<?php
+	if (!$vb_read_only) {
+?>				
 			<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
-			
+<?php
+	}
+?>			
 			<div style="display: none;" class="itemName">{label}</div>
 			<div style="display: none;" class="itemIdno">{idno_sort}</div>
 		</div>
@@ -67,9 +74,13 @@
 			({{relationship_typename}})
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_type_id{n}" id="<?php print $vs_id_prefix; ?>_type_id{n}" value="{type_id}"/>
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_id{n}" id="<?php print $vs_id_prefix; ?>_id{n}" value="{id}"/>
-			
+<?php
+	if (!$vb_read_only) {
+?>				
 			<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
-			
+<?php
+	}
+?>			
 			<div style="display: none;" class="itemName">{label}</div>
 			<div style="display: none;" class="itemIdno">{idno_sort}</div>
 		</div>
@@ -111,7 +122,7 @@
 	
 	<div class="bundleContainer">
 <?php
-	if(sizeof($this->getVar('initialValues'))) {
+	if(sizeof($this->getVar('initialValues')) && !$vb_read_only) {
 ?>
 		<div class="caItemListSortControlTrigger" id="<?php print $vs_id_prefix; ?>caItemListSortControlTrigger">
 			<?php print _t('Sort by'); ?>
@@ -131,7 +142,13 @@
 		</div>
 		<input type="hidden" name="<?php print $vs_id_prefix; ?>BundleList" id="<?php print $vs_id_prefix; ?>BundleList" value=""/>
 		<div style="clear: both; width: 1px; height: 1px;"><!-- empty --></div>
+<?php
+	if (!$vb_read_only) {
+?>	
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label ? $vs_add_label : _t("Add relationship"); ?></a></div>
+<?php
+	}
+?>
 	</div>
 </div>
 			
@@ -154,7 +171,8 @@
 			showEmptyFormsOnLoad: 1,
 			autocompleteUrl: '<?php print caNavUrl($this->request, 'lookup', 'Object', 'Get', $va_lookup_params); ?>',
 			types: <?php print json_encode($va_settings['restrict_to_types']); ?>,
-			isSortable: true,
+			readonly: <?php print $vb_read_only ? "true" : "false"; ?>,
+			isSortable: <?php print $vb_read_only ? "false" : "true"; ?>,
 			listSortOrderID: '<?php print $vs_id_prefix; ?>BundleList',
 			listSortItems: 'div.roundedRel',
 <?php

@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/local/bin/php
 <?php
 	set_time_limit(24 * 60 * 60 * 7); /* maximum generation time: 7 days :-) */
 	

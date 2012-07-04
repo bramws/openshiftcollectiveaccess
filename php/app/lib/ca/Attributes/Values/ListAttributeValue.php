@@ -236,7 +236,13 @@
  			if (($pa_element_info['parent_id']) && ($pa_element_info['settings']['render'] == 'checklist')) { $pa_element_info['settings']['render'] = ''; }	// checklists can only be top-level
  			if (!isset($pa_options['width']) && isset($pa_element_info['settings']['listWidth']) && strlen($pa_element_info['settings']['listWidth']) > 0) { $pa_options['width'] = $pa_element_info['settings']['listWidth']; }
  			if (!isset($pa_options['height']) && isset($pa_element_info['settings']['listHeight']) && strlen($pa_element_info['settings']['listHeight']) > 0) { $pa_options['height'] = $pa_element_info['settings']['listHeight']; }
- 			return ca_lists::getListAsHTMLFormElement($pa_element_info['list_id'], '{fieldNamePrefix}'.$pa_element_info['element_id'].'_{n}', array('id' => '{fieldNamePrefix}'.$pa_element_info['element_id'].'_{n}'), array_merge($pa_options, array('render' => isset($pa_element_info['settings']['render']) ? $pa_element_info['settings']['render'] : '', 'maxColumns' => $pa_element_info['settings']['maxColumns'], 'element_id' => $pa_element_info['element_id'], 'nullOption' => !$vb_require_value ? _t('-NONE-') : null)));
+ 			
+ 			if (isset($pa_options['nullOption']) && strlen($pa_options['nullOption'])) {
+ 				$vb_null_option = $pa_options['nullOption'];
+ 			} else {
+ 				$vb_null_option = !$vb_require_value ? _t('-NONE-') : null;
+ 			}
+ 			return ca_lists::getListAsHTMLFormElement($pa_element_info['list_id'], '{fieldNamePrefix}'.$pa_element_info['element_id'].'_{n}', array('id' => '{fieldNamePrefix}'.$pa_element_info['element_id'].'_{n}'), array_merge($pa_options, array('render' => isset($pa_element_info['settings']['render']) ? $pa_element_info['settings']['render'] : '', 'maxColumns' => $pa_element_info['settings']['maxColumns'], 'element_id' => $pa_element_info['element_id'], 'nullOption' => $vb_null_option)));
  		}
  		# ------------------------------------------------------------------
  		public function getAvailableSettings() {

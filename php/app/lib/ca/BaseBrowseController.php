@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -355,9 +355,10 @@
 				$this->view->setVar('relationship_type_list', $t_rel_types->getRelationshipInfo($va_facet_info['relationship_table']));
 				
 				$this->view->setVar('t_item', $t_model);
-				$this->view->setVar('t_subject', $this->opo_datamodel->getInstanceByTableName($this->ops_tablename, true));
 			}
 			
+			$this->view->setVar('t_subject', $this->opo_datamodel->getInstanceByTableName($this->ops_tablename, true));
+				
 			$this->opo_result_context->saveContext();
 			if (isset($pa_options['view']) && $pa_options['view']) { 
 				$vs_content = $this->render($pa_options['view']);
@@ -410,17 +411,22 @@
  						}
  					}
  					break;
+ 				case 'label':
+ 					// label facet
+ 					$va_facet_info['table'] = $this->ops_tablename;
+ 					// fall through to default case
  				default:
 					if(!$pn_id) {
 						$ps_table_name = $va_facet_info['table'];
 						require_once(__CA_MODELS_DIR__.'/'.$ps_table_name.'.php');
 						$t_item = new $ps_table_name($pn_id);
-						$pn_id = $t_item->getHierarchyRootID();
-						$va_hierarchy_list = $t_item->getHierarchyList();
+						$pn_id = $vn_root = $t_item->getHierarchyRootID();
+						$va_hierarchy_list = $t_item->getHierarchyList(true);
+						
 						$vn_last_id = null;
 						foreach($va_hierarchy_list as $vn_i => $va_item) {
 							$va_item['id'] = $va_item[$t_item->primaryKey()];
-							if (!isset($va_facet[$va_item['id']])) { continue; }
+							if (!isset($va_facet[$va_item['id']]) && ($vn_root == $va_item['id'])) { continue; }
 							unset($va_item['item_id']);
 							unset($va_item['parent_id']);
 							unset($va_item['label']);
@@ -485,6 +491,10 @@
  						}
  					}
  					break;
+ 				case 'label':
+ 					// label facet
+ 					$va_facet_info['table'] = $this->ops_tablename;
+ 					// fall through to default case
  				default:
 					$ps_table_name = $va_facet_info['table'];
 					require_once(__CA_MODELS_DIR__.'/'.$ps_table_name.'.php');
@@ -493,7 +503,7 @@
 					if (method_exists($t_item, "getHierarchyList")) { 
 						$va_access_values = caGetUserAccessValues($this->request);
 						$va_facet = $this->opo_browse->getFacet($ps_facet_name, array('sort' => 'name', 'checkAccess' => $va_access_values));
-						$va_hierarchy_list = $t_item->getHierarchyList();
+						$va_hierarchy_list = $t_item->getHierarchyList(true);
 						
 						$vn_hierarchies_in_use = 0;
 						foreach($va_hierarchy_list as $vn_i => $va_item) {

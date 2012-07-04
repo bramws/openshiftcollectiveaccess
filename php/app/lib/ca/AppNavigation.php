@@ -762,6 +762,9 @@
 							$vs_value = '';
 						}
 						break;
+					case 'string':
+						$vs_value = $va_tmp[1];
+						break;
 					case 'global':
 						$vs_value = $GLOBALS[$va_tmp[1]];
 						break;

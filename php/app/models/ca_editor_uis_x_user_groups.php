@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2010 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -60,6 +60,17 @@ BaseModel::$s_ca_models_definitions['ca_editor_uis_x_user_groups'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => 'Group id', 'DESCRIPTION' => 'Identifier for Group'
+		),
+		'access' => array(
+				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_SELECT, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => 1,
+				'BOUNDS_CHOICE_LIST' => array(
+					_t('can read') => 1,
+					_t('can edit') => 2
+				),
+				'LABEL' => _t('Access'), 'DESCRIPTION' => _t('Indicates user&apos;s level of access to the display. ')
 		)
  	)
 );

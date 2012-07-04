@@ -38,13 +38,13 @@
 	
 	$va_log = Db::$monitor->getLogOutput();
 ?>
-	<div style="display: none; overflow: auto; width: 900px; height: 400px; position: fixed; top: 50px; left: 50px; background: #ffffff; padding: 15px;" id="caApplicationMonitor">
+	<div id="caApplicationMonitor">
 <?php
 	if (is_array($va_log['queries']) && ($vn_num_queries = sizeof($va_log['queries']))) {
 ?>
-		<h1>Logged <?php print $vn_num_queries; ?> queries</h1>
+		<h1><?php print _t('Logged %1 queries', $vn_num_queries); ?></h1>
 		<table>
-			<tr><th width="620">Query</th><th width="120">Parameters</th><th width="30">Execution time</th><th width="30">Hits</th></tr>
+			<tr><th width="310"><?php print _t('Query'); ?></th><th width="120"><?php print _t('Parameters'); ?></th><th width="310"><?php print _t('Location'); ?></th><th width="30"><?php print _t('Execution time'); ?></th><th width="30"><?php print _t('Hits'); ?></th></tr>
 <?php
 		foreach($va_log['queries'] as $vn_i => $va_query) {
 			$vs_params = '';
@@ -54,15 +54,24 @@
 				}
 			}
 			print "<tr>";
-			print "<td>".str_replace(',', ', ',$va_query['query'])."</td><td>{$vs_params}</td><td>{$va_query['time']}s</td><td>{$va_query['hits']}</td>";
+			print "<td>".str_replace(',', ', ',$va_query['query'])."</td><td>{$vs_params}</td><td>";
+			
+			if (is_array($va_query['trace'])) {
+				array_shift($va_query['trace']); // remove call to logQuery
+				foreach($va_query['trace'] as $vn_i => $va_call) {
+					print $va_call['class']."-&gt;".$va_call['function']."@".$va_call['line']."<br/>\n";
+				}
+			}
+			
+			print "</td><td>{$va_query['time']}s</td><td>{$va_query['numHits']}</td>";
 			print "</tr>\n";
-			print "<tr><td colspan='4'><hr/></td></tr>\n";
+			print "<tr><td colspan='5'><hr/></td></tr>\n";
 		}
 ?>
 		</table>
 <?php
 	} else {
-		print "No queries met logging requirements";
+		print _t("No queries met logging requirements");
 	}
 ?>
 	</div>

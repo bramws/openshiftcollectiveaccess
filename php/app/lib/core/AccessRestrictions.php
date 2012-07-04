@@ -81,7 +81,7 @@ class AccessRestrictions {
 		}
 	}
 	# -------------------------------------------------------
-	public function userCanAccess($pn_user_id,$pa_module_path,$ps_controller,$ps_action,$pa_fake_parameters=array()){
+	public function userCanAccess($pn_user_id ,$pa_module_path,$ps_controller,$ps_action,$pa_fake_parameters=array()){
 		if(!$this->opo_acr_config->get("enforce_access_restrictions")){ // admin doesn't want us to enforce any restrictions
 			return true;
 		}
@@ -92,7 +92,9 @@ class AccessRestrictions {
 			return false;
 		}
 		
-		$this->opt_user->load($pn_user_id);
+		if ($this->opt_user->getPrimaryKey() != $pn_user_id) {
+			$this->opt_user->load($pn_user_id);
+		}
 		
 		if($this->opt_user->canDoAction("is_administrator")) { // almighty admin!
 			return true;
@@ -101,6 +103,10 @@ class AccessRestrictions {
 		$va_groups_to_check = array();
 
 		// check module components
+		if(!is_array($pa_module_path)){
+			$pa_module_path = explode("/",$pa_module_path);
+		}
+		
 		if(is_array($pa_module_path)){
 			$va_modules_to_check = array();
 			foreach($pa_module_path as $vs_module) {
@@ -141,10 +147,8 @@ class AccessRestrictions {
 					continue; // auto-pass
 				}
 			}
-			//if(!$this->opo_request->isLoggedIn()){
-			//	return false;
-			//}
-			if(isset($va_group["operator"]) && $va_group["operator"]=="OR") { // OR
+			
+			if(isset($va_group["operator"]) && ($va_group["operator"]=="OR")) { // OR
 				foreach($va_group["actions"] as $vs_action) {
 					if($this->opt_user->canDoAction($vs_action)){
 						$vb_group_passed = true;
@@ -203,6 +207,9 @@ class AccessRestrictions {
 			} else {
 				if(isset($pa_fake_parameters[$vs_key])){
 					$vs_fake_val = $pa_fake_parameters[$vs_key];
+					if(preg_match("/\{[a-z_]*\}/",$vs_fake_val)){ // fake value is placeholder for actual value inserted into forms via JS later -> set some fake actual integer value
+						$vs_fake_val = 1;
+					}
 				} else {
 					$vs_fake_val = null;
 				}
@@ -226,7 +233,7 @@ class AccessRestrictions {
 					}
 				} else {
 					if($va_value_data["value"]=="not_set"){
-						if($this->opo_request->getParameter($vs_key,pInteger)!=""){
+						if($this->opo_request->getParameter($vs_key,pInteger)!="" || !is_null($vs_fake_val)){
 							return false;
 						}
 					} else {

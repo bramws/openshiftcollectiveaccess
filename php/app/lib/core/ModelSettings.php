@@ -308,11 +308,11 @@
 					break;
 				# --------------------------------------------
 				case DT_CHECKBOXES:
-					$va_attributes = array('value' => '1');
-					if ($vs_value) {
+					$va_attributes = array('value' => '1', 'id' => $vs_input_id);
+					if ((int)$vs_value === 1) {
 						$va_attributes['checked'] = '1';
 					}
-					$vs_return .= caHTMLCheckboxInput($vs_input_name, $va_attributes, array('id' => $vs_input_id));
+					$vs_return .= caHTMLCheckboxInput($vs_input_name, $va_attributes, array());
 					break;
 				# --------------------------------------------
 				case DT_SELECT:

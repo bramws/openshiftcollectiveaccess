@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -28,18 +28,17 @@
  	$t_movement 			= $this->getVar('t_subject');
 	$vn_movement_id 		= $this->getVar('subject_id');
 
-	$vb_can_create		= $this->request->user->canDoAction('can_create_ca_movements');
-	$vb_can_edit		= $this->request->user->canDoAction('can_edit_ca_movements');
-	$vb_can_delete		= $this->request->user->canDoAction('can_delete_ca_movements');
-
-	$vb_print_buttons = (intval($vn_movement_id) > 0 ? $vb_can_edit : $vb_can_create);
+	$vb_can_edit	 	= $t_movement->isSaveable($this->request);
+	$vb_can_delete		= $t_movement->isDeletable($this->request);
 	
-	print $vs_control_box = caFormControlBox(
-		($vb_can_edit ? caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'MovementEditorForm') : '').' '.
-		($vb_can_edit ? caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/movements', 'MovementEditor', 'Edit/'.$this->request->getActionExtra(), array('movement_id' => $vn_movement_id)) : ''), 
-		'', 
-		((intval($vn_movement_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/movements', 'MovementEditor', 'Delete/'.$this->request->getActionExtra(), array('movement_id' => $vn_movement_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'MovementEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/movements', 'MovementEditor', 'Edit/'.$this->request->getActionExtra(), array('movement_id' => $vn_movement_id)), 
+			'', 
+			((intval($vn_movement_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/movements', 'MovementEditor', 'Delete/'.$this->request->getActionExtra(), array('movement_id' => $vn_movement_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -51,7 +50,7 @@
 			
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='movement_id' value='<?php print $vn_movement_id; ?>'/>
 		</form>

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -35,6 +35,7 @@
    */
 require_once(__CA_LIB_DIR__.'/ca/BundlableLabelableBaseModelWithAttributes.php');
 require_once(__CA_MODELS_DIR__.'/ca_editor_ui_screens.php');
+require_once(__CA_MODELS_DIR__.'/ca_editor_ui_type_restrictions.php');
 
 
 BaseModel::$s_ca_models_definitions['ca_editor_uis'] = array(
@@ -105,9 +106,7 @@ BaseModel::$s_ca_models_definitions['ca_editor_uis'] = array(
 					_t('user interfaces') => 101,
 					_t('user interface screens') => 100,
 					_t('import/export mappings') => 128,
-					_t('import/export mapping groups') => 130,
-					_t('tours') => 153,
-					_t('tour stops') => 155
+					_t('import/export mapping groups') => 130
 				)
 		),
 		'color' => array(
@@ -214,7 +213,7 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 	
 	
 	static $s_available_ui_cache = array();
-	static $s_screen_info_cache = array();
+	static $s_default_ui_cache = array();
 	
 	# ------------------------------------------------------
 	# $FIELDS contains information about each field in the table. The order in which the fields
@@ -230,7 +229,10 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 	protected function initLabelDefinitions() {
 		parent::initLabelDefinitions();
 		
+		$this->BUNDLES['ca_users'] = array('type' => 'special', 'repeating' => true, 'label' => _t('User access'));
+		$this->BUNDLES['ca_user_groups'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Group access'));
 		$this->BUNDLES['ca_editor_ui_screens'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Screens'));
+		$this->BUNDLES['ca_editor_ui_type_restrictions'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Type restrictions'));
 	}
 	# ------------------------------------------------------
 	/** 
@@ -265,36 +267,78 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 				$this->errors = array_merge($this->errors, $t_item_root->errors);
 			}
 		}
-		
+		unset($_SESSION['screen_cache']);
 		return $vn_rc;
 	}
 	# ----------------------------------------
 	/**
-	 * Values for $ps_type:
+	 * Load standard UI (either system default or user-defined) for specified record and, optionally, record type
+	 *
+	 * @param mixed $pm_table_name_or_num Table name or number to load editor for. Values for $pm_table_name_or_num may be, for example:
 	 *		'ca_objects' = objects editor
 	 *		'ca_entities' = entities editor
 	 *		.. etc ..
+	 * @param RequestHTTP $po_request The current request
+	 * @param int $pn_type_id Optional type_id
+	 * @return ca_editor_uis instance loaded with default UI on success, false on failure
 	 */
-	public function loadDefaultUI($ps_type, $po_request) {
-		if (!$this->load($po_request->user->getPreference('cataloguing_'.$ps_type.'_editor_ui'))) {
-			if (!($vn_type = $this->getAppDatamodel()->getTableNum($ps_type))) { return false; }
-			$va_ui_ids = ca_editor_uis::getAvailableUIs($vn_type, $po_request->getUserID(), true);
+	static public function loadDefaultUI($pm_table_name_or_num, $po_request, $pn_type_id=null) {
+		if (ca_editor_uis::$s_default_ui_cache[$pm_table_name_or_num.'/'.$pn_type_id]) { return ca_editor_uis::$s_default_ui_cache[$pm_table_name_or_num.'/'.$pn_type_id]; }
+		
+		$o_dm = Datamodel::load();
+		if (is_numeric($pm_table_name_or_num)) {
+			$t_instance = $o_dm->getInstanceByTableNum($pm_table_name_or_num, true);
+		} else {
+			$t_instance = $o_dm->getInstanceByTableName($pm_table_name_or_num, true);
+		}
+		if (!$t_instance) { return false; }
+			
+		$vs_table_name = $t_instance->tableName();
+		$vn_table_num = $t_instance->tableNum();
+		
+		$va_uis_by_type = $po_request->user->getPreference("cataloguing_{$vs_table_name}_editor_ui");
+		$va_available_uis_by_type = $po_request->user->_getUIListByType($vn_table_num);
+		
+		if ($pn_type_id) {
+			if (!is_array($va_uis_by_type)) { 
+				if (!isset($va_available_uis_by_type[$pn_type_id][$va_uis_by_type])) {
+					$pn_type_id = null;
+				}
+				$va_uis_by_type = array(); 
+			} else {
+				if (!isset($va_available_uis_by_type[$pn_type_id][$va_uis_by_type[$pn_type_id]])) {
+					$pn_type_id = null;
+				}
+			}
+		}
+		
+		$t_ui = new ca_editor_uis();
+		if (!$pn_type_id || !($vn_rc = $t_ui->load($va_uis_by_type[$pn_type_id]))) {
+			$va_ui_ids = ca_editor_uis::getAvailableUIs($vn_table_num, $po_request, $pn_type_id, true);
 			
 			if (sizeof($va_ui_ids) == 0) { return false; }
 			$va_tmp = array_keys($va_ui_ids);
-			return $this->load($va_tmp[0]); 
+			if ($t_ui->load($va_tmp[0])) {
+				return ca_editor_uis::$s_default_ui_cache[$pm_table_name_or_num.'/'.$pn_type_id] = $t_ui;
+			}
+			return false;
 		}
-		return true;
+		return ca_editor_uis::$s_default_ui_cache[$pm_table_name_or_num.'/'.$pn_type_id] = $t_ui;
 	}
 	# ----------------------------------------
 	#
 	# ----------------------------------------
 	/**
-	 * Returns list of screen for a given UI. 
+	 * Returns list of screens for a given UI. 
+	 *
+	 * @param RequestHTTP $po_request The current request
+	 * @param int $pn_type_id Optional type to restrict screens to
 	 */
-	public function getScreens($po_request=null, $pn_type_id=null) {
+	public function getScreens($po_request=null, $pn_type_id=null, $pa_options=null) {
 		if (!$this->getPrimaryKey()) { return false; }
-		if (ca_editor_uis::$s_screen_info_cache[$this->getPrimaryKey().'/'.$pn_type_id]) { return ca_editor_uis::$s_screen_info_cache[$this->getPrimaryKey().'/'.$pn_type_id]; }
+		
+		$vs_opts_md5 = caMakeCacheKeyFromOptions($pa_options);
+		if (isset($_SESSION['screen_cache'][$this->getPrimaryKey().'/'.$pn_type_id.'/'.$vs_opts_md5])) { return $_SESSION['screen_cache'][$this->getPrimaryKey().'/'.$pn_type_id.'/'.$vs_opts_md5]; }
 		if (!($t_instance = $this->_DATAMODEL->getInstanceByTableNum($this->get('editor_type')))) { return null; }
 		
 		$va_types = $t_instance->getTypeList();
@@ -330,14 +374,36 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 			}
 		}
 		
+		$va_screens_with_bundles = null;
+		if ((!isset($pa_options['showAll']) || !$pa_options['showAll']) && (sizeof($va_screens))) {
+			// Get placements for all screens, so we can filter screens without placements
+			$qr_res = $o_db->query("
+				SELECT screen_id, placement_id, bundle_name
+				FROM ca_editor_ui_bundle_placements
+				WHERE
+					screen_id IN (?)
+			", array(array_keys($va_screens)));
+			
+			$vs_table = $t_instance->tableName();
+			
+			$va_screens_with_bundles = array();
+			while($qr_res->nextRow()) {
+				$vn_screen_id = $qr_res->get('screen_id');
+				if (isset($va_screens_with_bundles[$vn_screen_id])) { continue; }
+				if (caGetBundleAccessLevel($vs_table, $qr_res->get('bundle_name')) != __CA_BUNDLE_ACCESS_NONE__) {
+					$va_screens_with_bundles[$vn_screen_id] = true;
+				}
+			}
+		}
+		
 		foreach($va_screens as $vn_screen_id => $va_screen_labels_by_locale) {
+			if (is_array($va_screens_with_bundles) && !isset($va_screens_with_bundles[$vn_screen_id])) { unset($va_screens[$vn_screen_id]); continue; }
 			foreach($va_screen_labels_by_locale as $vn_locale_id => $va_restriction_info) {
 				if (!is_array($va_screens[$vn_screen_id][$vn_screen_locale_id]['typeRestrictions'])) { continue; }
 				$va_screens[$vn_screen_id][$vn_screen_locale_id]['typeRestrictionsForDisplay'] = join(', ', $va_screens[$vn_screen_id][$vn_screen_locale_id]['typeRestrictions']);
 			}
 		}
-		
-		return ca_editor_uis::$s_screen_info_cache[$this->getPrimaryKey().'/'.$pn_type_id] = caExtractValuesByUserLocale($va_screens);
+		return $_SESSION['screen_cache'][$this->getPrimaryKey().'/'.$pn_type_id.'/'.$vs_opts_md5] = caExtractValuesByUserLocale($va_screens);
 	}
 	# ----------------------------------------
 	/**
@@ -348,9 +414,10 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 	  */
 	public function getScreenCount($pn_type_id=null) {
 		if (!$this->getPrimaryKey()) { return 0; }
-		if (ca_editor_uis::$s_screen_info_cache[$this->getPrimaryKey().'/'.$pn_type_id]) { return sizeof(ca_editor_uis::$s_screen_info_cache[$this->getPrimaryKey().'/'.$pn_type_id]); }
+		$vs_opts_md5 = md5(print_r(array('showAll' => true), true));
+		if ($_SESSION['screen_cache'][$this->getPrimaryKey().'/'.$pn_type_id.'/'.$vs_opts_md5]) { return sizeof($_SESSION['screen_cache'][$this->getPrimaryKey().'/'.$pn_type_id.'/'.$vs_opts_md5]); }
 		
-		return sizeof($this->getScreens(null, $pn_type_id));
+		return sizeof($this->getScreens(null, $pn_type_id, array('showAll' => true)));
 	}
 	# ----------------------------------------
 	/**
@@ -489,52 +556,26 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 	/**
 	 * Get UI count
 	 */
-	public static function getUICount($pn_type=null, $pn_user_id=null){
-		return sizeof(ca_editor_uis::getUIList($pn_type, $pn_user_id));
+	public static function getUICount($pn_table_num=null, $pn_user_id=null){
+		return sizeof(ca_editor_uis::getUIList($pn_table_num, $pn_user_id));
 	}
 	# ----------------------------------------
 	/**
 	 * Returns a list of ca_editor_uis ui_ids for all
 	 * user interfaces that the user can access for the specified type
 	 */
-	public static function getAvailableUIs($pn_type, $pn_user_id, $pb_show_all=false) {
-		if (ca_editor_uis::$s_available_ui_cache[$pn_type.'/'.$pn_user_id]) { return ca_editor_uis::$s_available_ui_cache[$pn_type.'/'.$pn_user_id]; }
+	public static function getAvailableUIs($pn_table_num, $po_request, $pn_type_id=null) {
+		$pn_user_id = $po_request->getUserID();
+		if (ca_editor_uis::$s_available_ui_cache[$pn_table_num.'/'.$pn_type_id.'/'.$pn_user_id]) { return ca_editor_uis::$s_available_ui_cache[$pn_table_num.'/'.$pn_type_id.'/'.$pn_user_id]; }
 		
-		$o_db = new Db();
-		
-		if ($pb_show_all) {
-			$qr_res = $o_db->query("
-				SELECT ceui.ui_id, ceuil.name, ceuil.description, ceuil.locale_id, ceui.editor_type, ceui.is_system_ui
-				FROM ca_editor_uis ceui
-				INNER JOIN ca_editor_ui_labels AS ceuil ON ceui.ui_id = ceuil.ui_id
-				WHERE
-					(ceui.editor_type = ?) 
-				ORDER BY ceuil.name
-			", (int)$pn_type);
+		if ($pn_type_id) {
+			$va_uis = $po_request->user->_getUIListByType($pn_table_num);
+			$va_uis = $va_uis[$pn_type_id];
 		} else {
-			$qr_res = $o_db->query("
-				SELECT ceui.ui_id, ceuil.name, ceuil.description, ceuil.locale_id, ceui.editor_type, ceui.is_system_ui
-				FROM ca_editor_uis ceui
-				INNER JOIN ca_editor_ui_labels AS ceuil ON ceui.ui_id = ceuil.ui_id
-				WHERE
-					(ceui.editor_type = ?) AND
-					(
-						(ceui.user_id = ?) OR
-						(ceui.is_system_ui = 1)
-					)
-				ORDER BY ceuil.name
-			", (int)$pn_type, (int)$pn_user_id);
+			$va_uis = $po_request->user->_getUIList($pn_table_num);
 		}
 		
-		$va_uis = array();
-		while($qr_res->nextRow()) {
-			$va_row = $qr_res->getRow();
-			$va_uis[$va_row['ui_id']][$va_row['locale_id']] = $va_row;
-		}
-		
-		$va_uis = caExtractValuesByUserLocale($va_uis);
-		
-		return ca_editor_uis::$s_available_ui_cache[$pn_type.'/'.$pn_user_id] = $va_uis;
+		return ca_editor_uis::$s_available_ui_cache[$pn_table_num.'/'.$pn_type_id.'/'.$pn_user_id] = $va_uis;
 	}
 	# ------------------------------------------------------
 	/**
@@ -622,6 +663,7 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 			$o_trans->commit();
 		}
 		
+		unset($_SESSION['screen_cache']);
 		return $va_errors;
 	}
 	# ------------------------------------------------------
@@ -654,6 +696,7 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 			return false;
 		}
 		
+		unset($_SESSION['screen_cache']);
 		return $t_screen;
 	}
 	# ------------------------------------------------------
@@ -666,7 +709,167 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 		
 		if (!$t_screen->load(array('ui_id' => $vn_ui_id, 'screen_id' => $pn_screen_id))) { return false; }
 		$t_screen->setMode(ACCESS_WRITE);
+		unset($_SESSION['screen_cache']);
 		return $t_screen->delete(true);
+	}
+	# ----------------------------------------
+	# Type restrictions
+	# ----------------------------------------
+	/**
+	 * Adds restriction (a binding between the ui and item type)
+	 *
+	 * @param int $pn_type_id the type
+	 * @param array $pa_settings Array of options for the restriction. (No options are currently implemented).
+	 * @return bool True on success, false on error, null if no screen is loaded
+	 * 
+	 */
+	public function addTypeRestriction($pn_type_id, $va_settings=null) {
+		if (!($vn_ui_id = $this->getPrimaryKey())) { return null; }		// UI must be loaded
+		if (!is_array($va_settings)) { $va_settings = array(); }
+		
+		if (!($t_instance = $this->_DATAMODEL->getInstanceByTableNum($this->get('editor_type')))) { return false; }
+		
+		$va_type_list = $t_instance->getTypeList();
+		if (!isset($va_type_list[$pn_type_id])) { return false; }
+		
+		$t_restriction = new ca_editor_ui_type_restrictions();
+		$t_restriction->setMode(ACCESS_WRITE);
+		$t_restriction->set('table_num', $this->get('editor_type'));
+		$t_restriction->set('type_id', $pn_type_id);
+		$t_restriction->set('ui_id', $this->getPrimaryKey());
+		foreach($va_settings as $vs_setting => $vs_setting_value) {
+			$t_restriction->setSetting($vs_setting, $vs_setting_value);
+		}
+		$t_restriction->insert();
+		
+		if ($t_restriction->numErrors()) {
+			$this->errors = $t_restriction->errors();
+			return false;
+		}
+		return true;
+	}
+	# ----------------------------------------
+	/**
+	 * Sets restrictions for currently loaded ui
+	 *
+	 * @param array $pa_type_ids list of types to restrict to
+	 * @return bool True on success, false on error, null if no screen is loaded
+	 * 
+	 */
+	public function setTypeRestrictions($pa_type_ids) {
+		if (!($vn_ui_id = $this->getPrimaryKey())) { return null; }		// UI must be loaded
+		if (!is_array($pa_type_ids)) {
+			if (is_numeric($pa_type_ids)) { 
+				$pa_type_ids = array($pa_type_ids); 
+			} else {
+				$pa_type_ids = array();
+			}
+		}
+		
+		if (!($t_instance = $this->_DATAMODEL->getInstanceByTableNum($this->get('editor_type')))) { return false; }
+		
+		$va_type_list = $t_instance->getTypeList();
+		$va_current_restrictions = $this->getTypeRestrictions();
+		$va_current_type_ids = array();
+		foreach($va_current_restrictions as $vn_i => $va_restriction) {
+			$va_current_type_ids[$va_restriction['type_id']] = true;
+		}
+		
+		foreach($va_type_list as $vn_type_id => $va_type_info) {
+			if(in_array($vn_type_id, $pa_type_ids)) {
+				// need to set
+				if(!isset($va_current_type_ids[$vn_type_id])) {
+					$this->addTypeRestriction($vn_type_id);
+				}
+			} else {
+				// need to unset
+				if(isset($va_current_type_ids[$vn_type_id])) {
+					$this->removeTypeRestriction($vn_type_id);
+				}
+			}
+		}
+		return true;
+	}
+	# ----------------------------------------
+	/**
+	 * Remove restriction from currently loaded ui for specified type
+	 *
+	 * @param int $pn_type_id The type of the restriction
+	 * @return bool True on success, false on error, null if no screen is loaded
+	 */
+	public function removeTypeRestriction($pn_type_id) {
+		if (!($vn_ui_id = $this->getPrimaryKey())) { return null; }		// ui must be loaded
+		
+		$o_db = $this->getDb();
+		
+		$qr_res = $o_db->query("
+			DELETE FROM ca_editor_ui_type_restrictions
+			WHERE
+				ui_id = ? AND type_id = ?
+		", (int)$this->getPrimaryKey(), (int)$pn_type_id);
+		
+		if ($o_db->numErrors()) {
+			$this->errors = $o_db->errors();
+			return false;
+		}
+		return true;
+	}
+	# ----------------------------------------
+	/**
+	 * Remove all type restrictions from loaded ui
+	 *
+	 * @return bool True on success, false on error, null if no screen is loaded 
+	 */
+	public function removeAllTypeRestrictions() {
+		if (!($vn_ui_id = $this->getPrimaryKey())) { return null; }		// screen must be loaded
+		
+		$o_db = $this->getDb();
+		
+		$qr_res = $o_db->query("
+			DELETE FROM ca_editor_ui_type_restrictions
+			WHERE
+				ui_id = ?
+		", (int)$this->getPrimaryKey());
+		
+		if ($o_db->numErrors()) {
+			$this->errors = $o_db->errors();
+			return false;
+		}
+		return true;
+	}
+	# ----------------------------------------
+	/**
+	 * Return restrictions for currently loaded ui
+	 *
+	 * @param int $pn_type_id Type to limit returned restrictions to; if omitted or null then all restrictions are returned
+	 * @return array A list of restrictions, false on error or null if no ui is loaded
+	 */
+	public function getTypeRestrictions($pn_type_id=null) {
+		if (!($vn_ui_id = $this->getPrimaryKey())) { return null; }		// ui must be loaded
+		
+		$o_db = $this->getDb();
+		
+		$vs_table_type_sql = '';
+		if ($pn_type_id > 0) {
+			$vs_table_type_sql .= ' AND type_id = '.intval($pn_type_id);
+		}
+		$qr_res = $o_db->query("
+			SELECT *
+			FROM ca_editor_ui_type_restrictions
+			WHERE
+				ui_id = ? {$vs_table_type_sql}
+		", (int)$this->getPrimaryKey());
+		
+		if ($o_db->numErrors()) {
+			$this->errors = $o_db->errors();
+			return false;
+		}
+		
+		$va_restrictions = array();
+		while($qr_res->nextRow()) {
+			$va_restrictions[] = $qr_res->getRow();
+		}
+		return $va_restrictions;
 	}
 	# ------------------------------------------------------
 	# Bundles
@@ -688,12 +891,48 @@ class ca_editor_uis extends BundlableLabelableBaseModelWithAttributes {
 		$o_view->setVar('request', $po_request);
 		
 		if ($this->getPrimaryKey()) {
-			$o_view->setVar('screens', $this->getScreens($po_request));
+			$o_view->setVar('screens', $this->getScreens($po_request, null, array('showAll' => true)));
 		} else {
 			$o_view->setVar('screens', array());
 		}
 		
 		return $o_view->render('ca_editor_ui_screens.php');
+	}
+	# ----------------------------------------
+	/**
+	 * Renders and returns HTML form bundle for management of type restriction in the currently loaded ui
+	 * 
+	 * @param object $po_request The current request object
+	 * @param string $ps_form_name The name of the form in which the bundle will be rendered
+	 *
+	 * @return string Rendered HTML bundle for display
+	 */
+	public function getTypeRestrictionsHTMLFormBundle($po_request, $ps_form_name) {
+		$o_view = new View($po_request, $po_request->getViewsDirectoryPath().'/bundles/');
+		
+		$o_view->setVar('t_ui', $this);			
+		$o_view->setVar('id_prefix', $ps_form_name);		
+		$o_view->setVar('request', $po_request);
+		
+		$va_type_restrictions = $this->getTypeRestrictions();
+		$va_restriction_type_ids = array();
+		if (is_array($va_type_restrictions)) {
+			foreach($va_type_restrictions as $vn_i => $va_restriction) {
+				$va_restriction_type_ids[] = $va_restriction['type_id'];
+			}
+		}
+		
+		if (!($t_instance = $this->_DATAMODEL->getInstanceByTableNum($vn_table_num = $this->get('editor_type')))) { return null; }
+		
+		$o_view->setVar('type_restrictions', $t_instance->getTypeListAsHTMLFormElement('type_restrictions[]', array('multiple' => 1, 'height' => 5), array('value' => 0, 'values' => $va_restriction_type_ids)));
+	
+		return $o_view->render('ca_editor_ui_type_restrictions.php');
+	}
+	# ----------------------------------------
+	public function saveTypeRestrictionsFromHTMLForm($po_request, $ps_form_prefix) {
+		if (!$this->getPrimaryKey()) { return null; }
+		
+		return $this->setTypeRestrictions($po_request->getParameter('type_restrictions', pArray));
 	}
 	# ----------------------------------------
 }

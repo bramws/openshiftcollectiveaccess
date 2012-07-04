@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -34,6 +34,9 @@
 
 	$va_settings = 		$this->getVar('settings');
 	$vs_add_label =		$this->getVar('add_label');
+	
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel('ca_entities', 'nonpreferred_labels') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 ?>
 <div id="<?php print $vs_id_prefix; ?>Labels">
 <?php
@@ -75,7 +78,7 @@
 								<td>
 									<?php print $t_label->htmlFormElement('other_forenames', null, array('name' => "{fieldNamePrefix}other_forenames_{n}", 'id' => "{fieldNamePrefix}other_forenames_{n}", "value" => "{{other_forenames}}", 'no_tooltips' => false, 'tooltip_namespace' => 'bundle_ca_entity_labels_nonpreferred')); ?>
 								</td>
-								<td colspan="3"><?php print $t_label->htmlFormElement('displayname', null, array('name' => "{fieldNamePrefix}displayname_{n}", 'id' => "{fieldNamePrefix}displayname_{n}", "value" => "{{displayname}}", 'no_tooltips' => false, 'tooltip_namespace' => 'bundle_ca_entity_labels_nonpreferred', 'textAreaTagName' => 'textentry')); ?><td>
+								<td colspan="3"><?php print $t_label->htmlFormElement('displayname', null, array('name' => "{fieldNamePrefix}displayname_{n}", 'id' => "{fieldNamePrefix}displayname_{n}", "value" => "{{displayname}}", 'no_tooltips' => false, 'tooltip_namespace' => 'bundle_ca_entity_labels_nonpreferred', 'textAreaTagName' => 'textentry', 'readonly' => $vb_read_only)); ?><td>
 							<tr>
 						</table>
 					</td>
@@ -107,6 +110,7 @@
 		labelListClassName: 'caLabelList',
 		addButtonClassName: 'caAddLabelButton',
 		deleteButtonClassName: 'caDeleteLabelButton',
+		readonly: <?php print $vb_read_only ? "1" : "0"; ?>,
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>
 	});
 </script>

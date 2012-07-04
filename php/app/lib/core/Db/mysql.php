@@ -258,6 +258,9 @@ class Db_mysql extends DbDriverBase {
 
 		for($vn_i = (sizeof($pa_values) - 1); $vn_i >= 0; $vn_i--) {
 			if (is_array($pa_values[$vn_i])) {
+				foreach($pa_values[$vn_i] as $vn_x => $vs_vx) {
+					$pa_values[$vn_i][$vn_x] = $this->autoQuote($vs_vx);
+				}
 				$vs_sql = substr_replace($vs_sql, join(',', $pa_values[$vn_i]), $va_placeholder_map[$vn_i], 1 );
 			} else {
 				$vs_sql = substr_replace($vs_sql, $this->autoQuote($pa_values[$vn_i]), $va_placeholder_map[$vn_i], 1 );

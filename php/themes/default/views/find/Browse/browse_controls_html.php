@@ -126,6 +126,7 @@
 		print $this->render('Results/paging_controls_html.php');
 		print $this->render('Results/search_options_html.php');
 		print $this->render('Results/'.$this->getVar('target').'_results_'.$this->getVar('current_view').'_html.php');
+		print $this->render('Results/paging_controls_minimal_html.php');
 	}
 	if (!$this->request->isAjax()) {
 ?>

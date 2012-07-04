@@ -26,12 +26,13 @@
  * ----------------------------------------------------------------------
  */
  
- 	$po_request			= $this->getVar('request');
+ 	$po_request				= $this->getVar('request');
 	$va_item_list			= $this->getVar('item_list');
 	$vs_table_num			= $this->getVar('table_num');
 	$vs_table_display		= $this->getVar('table_display');
 	$vs_widget_id			= $this->getVar('widget_id');
-	$vn_height_px			= $this->getVar('height_px')
+	$vn_height_px			= $this->getVar('height_px');
+	$idno_display			= $this->getVar('idno_display');
 ?>
 
 <div class="dashboardWidgetContentContainer">
@@ -42,6 +43,8 @@
 		print "<li>".
 			"<a href=\"".caEditorUrl($po_request, $vs_table_num, $vn_id)."\">".
 			(strlen($va_record["display"])>0 ? $va_record["display"] : _t("[BLANK]")).
+			((($idno_display) && (strlen($va_record["idno"])>0)) ? " [".$va_record["idno"]."]" : "").
+			((($idno_display) && (strlen($va_record["idno_stub"])>0)) ? " [".$va_record["idno_stub"]."]" : "").			
 			"</a> - ".($va_record["datetime"] ? date("n/d/y, g:iA T", $va_record["datetime"]) : "")."</li>\n";
 		
 	}

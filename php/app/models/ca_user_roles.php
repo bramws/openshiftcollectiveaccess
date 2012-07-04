@@ -262,44 +262,70 @@ class ca_user_roles extends BaseModel {
 	 * Returns list of all possible actions 
 	 */
 	public function getRoleActionList($pb_flatten=false) {
-		$o_actions_config = Configuration::load($this->_CONFIG->get('user_actions'));
-		$vo_datamodel = Datamodel::load();
-		
-		$va_raw_actions = $o_actions_config->getAssoc('user_actions');
-
-		// expand actions that need expanding
-		foreach($va_raw_actions as $vs_group => &$va_group_info) {
-			$va_new_actions = array();
-			foreach($va_group_info["actions"] as $vs_action_key => $va_action){
-				if(is_array($va_action["expand_types"]) && strlen($va_action["expand_types"]["table"])>0){
-					$t_instance = $vo_datamodel->getInstanceByTableName($va_action["expand_types"]["table"], true);
-					if(method_exists($t_instance, "getTypeList")){
-						$va_type_list = $t_instance->getTypeList();
-						foreach($va_type_list as $vn_type_id => $va_type){
-							$vs_descr_app = str_replace("%t", "&quot;".$va_type["name_singular"]."&quot;", $va_action["expand_types"]["description_appendix"]);
-							$vs_label_app = str_replace("%t", "&quot;".$va_type["name_singular"]."&quot;", $va_action["expand_types"]["label_appendix"]);
-							$va_new_actions[$vs_action_key."_type:{$t_instance->tableName()}:{$va_type["idno"]}"] = array(
-								"description" => $va_action["description"]." ".$vs_descr_app,
-								"label" => $va_action["label"]." ".$vs_label_app
-							);
+		$va_actions = ca_user_roles::loadRoleActionList($this);
+		if ($pb_flatten) {
+			return $va_actions['flattened'];
+		} else {
+			return $va_actions['raw'];
+		}
+	}
+	# ------------------------------------------------------
+	/**
+	 * Caches and returns list of all possible actions 
+	 */
+	public static function loadRoleActionList() {
+		if (!ca_user_roles::$s_action_list) {
+			$o_config = Configuration::load();
+			$o_actions_config = Configuration::load($o_config->get('user_actions'));
+			$vo_datamodel = Datamodel::load();
+			
+			$va_raw_actions = $o_actions_config->getAssoc('user_actions');
+	
+			// expand actions that need expanding
+			foreach($va_raw_actions as $vs_group => &$va_group_info) {
+				$va_new_actions = array();
+				foreach($va_group_info["actions"] as $vs_action_key => $va_action){
+					if(is_array($va_action["expand_types"]) && strlen($va_action["expand_types"]["table"])>0){
+						$t_instance = $vo_datamodel->getInstanceByTableName($va_action["expand_types"]["table"], true);
+						if(method_exists($t_instance, "getTypeList")){
+							$va_type_list = $t_instance->getTypeList();
+							foreach($va_type_list as $vn_type_id => $va_type){
+								$vs_descr_app = str_replace("%t", "&quot;".$va_type["name_singular"]."&quot;", $va_action["expand_types"]["description_appendix"]);
+								$vs_label_app = str_replace("%t", "&quot;".$va_type["name_singular"]."&quot;", $va_action["expand_types"]["label_appendix"]);
+								$va_new_actions[$vs_action_key."_type:{$t_instance->tableName()}:{$va_type["idno"]}"] = array(
+									"description" => $va_action["description"]." ".$vs_descr_app,
+									"label" => $va_action["label"]." ".$vs_label_app
+								);
+							}
 						}
 					}
 				}
+				$va_group_info["actions"] = array_merge($va_group_info["actions"],$va_new_actions);
 			}
-			$va_group_info["actions"] = array_merge($va_group_info["actions"],$va_new_actions);
-		}
-		$va_raw_actions = $this->opo_app_plugin_manager->hookGetRoleActionList($va_raw_actions);
-		$va_raw_actions = $this->opo_widget_manager->hookGetRoleActionList($va_raw_actions);
-		
-		if ($pb_flatten) {
+			
+			if (is_array($va_raw_plugin_actions = ApplicationPluginManager::getPluginRoleActions())) {
+				$va_raw_actions['plugins'] = array(
+					'label' => 'Plugin actions',
+					'description' => '',
+					'actions' => $va_raw_plugin_actions
+				);
+			}
+			if (is_array($va_raw_widget_actions = WidgetManager::getWidgetRoleActions())) {
+				$va_raw_actions['widgets'] = array(
+					'label' => 'Widget actions',
+					'description' => '',
+					'actions' => $va_raw_widget_actions
+				);
+			}
+			
 			$va_flattened_actions = array();
 			foreach($va_raw_actions as $vs_group => $va_group_actions_info) {
 				$va_flattened_actions = array_merge($va_flattened_actions, $va_group_actions_info['actions']);
 			}
-			return $va_flattened_actions;
-		} else {
-			return $va_raw_actions;
+			
+			ca_user_roles::$s_action_list = array('raw' => $va_raw_actions, 'flattened' => $va_flattened_actions);
 		}
+		return ca_user_roles::$s_action_list;
 	}
 	# ------------------------------------------------------
 	# Static
@@ -337,31 +363,38 @@ class ca_user_roles extends BaseModel {
 	 * @return bool True if code is valid, false if not
 	 */
 	public static function isValidAction($ps_action) {
-		if (!ca_user_roles::$s_action_list) { 
-			$o_config = Configuration::load();
-			$o_actions_config = Configuration::load($o_config->get('user_actions'));
-			$va_raw_actions = $o_actions_config->getAssoc('user_actions');
-
-			// expand actions that need expanding
-			$va_actions = array();
-			foreach($va_raw_actions as $vs_group => $va_group_info) {
-				if (!is_array($va_group_info["actions"])) { continue; }
-				$va_actions = array_merge($va_actions, $va_group_info["actions"]);
-			}
-			
-			// Get plugin and widget actions
-			if (is_array($va_raw_plugin_actions = ApplicationPluginManager::getPluginRoleActions())) {
-				$va_actions = array_merge($va_actions, $va_raw_plugin_actions);
-			}
-			if (is_array($va_raw_widget_actions = WidgetManager::getWidgetRoleActions())) {
-				$va_actions = array_merge($va_actions, $va_raw_widget_actions);
-			}
-			
-			ca_user_roles::$s_action_list = $va_actions;
-		}
-		if(isset(ca_user_roles::$s_action_list[$ps_action])) { return true; }
+		$va_actions = ca_user_roles::loadRoleActionList();
+		if(isset($va_actions['flattened'][$ps_action])) { return true; }
 		
 		return false;
+	}
+	# ------------------------------------------------------
+	/** 
+	 *
+	 */
+	public static function getBundlesForRoleIDs($pa_role_ids) {
+		if (!is_array($pa_role_ids) || (sizeof($pa_role_ids) === 0)) { return array(); }
+		
+		$o_db = new Db();
+		
+		$qr_res = $o_db->query("
+			SELECT role_id, vars
+			FROM ca_user_roles
+			WHERE
+				role_id IN (".join(',', $pa_role_ids).")
+		");
+		
+		$va_bundles = array();
+		while($qr_res->nextRow()) {
+			$va_role_data = $qr_res->getVars('vars');
+			if (isset($va_role_data['bundle_access_settings']) && is_array($va_role_data['bundle_access_settings'])) {
+				
+				$va_bundles;
+				
+			}
+		}
+		$va_actions = array_flip($va_actions);
+		return array_keys($va_actions);
 	}
 	# ------------------------------------------------------
 }

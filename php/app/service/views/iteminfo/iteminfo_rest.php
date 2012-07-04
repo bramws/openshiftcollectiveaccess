@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -26,9 +26,12 @@
  * ----------------------------------------------------------------------
  */
 
+	require_once(__CA_APP_DIR__."/helpers/utilityHelpers.php");
 
 	$vo_rest_server = $this->getVar("rest_server");
 	$vs_return = $vo_rest_server->handle();
-	header('Content-Type: text/xml');
-	print preg_replace('/[\\x00-\\x1f]+/u','',$vs_return);
+	header('Content-Type: text/xml; charset=UTF-8');
+	
+	print caMakeProperUTF8ForXML($vs_return);
+	
 ?>

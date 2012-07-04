@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -260,6 +260,7 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 			$this->errors = array_merge($this->errors, $t_placement->errors);
 			return false;
 		}
+		unset($_SESSION['screen_cache']);
 		return $t_placement->getPrimaryKey();
 	}
 	# ------------------------------------------------------
@@ -289,6 +290,7 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 			}
 			
 			unset(ca_editor_ui_screens::$s_placement_list_cache[$vn_screen_id]);
+			unset($_SESSION['screen_cache']);
 			return true;
 		}
 		return false;
@@ -299,7 +301,7 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 	 *
 	 * @param array $pa_options Optional array of options. Supports the following options:
 	 * 		noCache = if set to true then the returned list if always generated directly from the database, otherwise it is returned from the cache if possible. Set this to true if you expect the cache may be stale. Default is false.
-	 *		returnAllAvailableIfEmpty = if set to true then the list of all available bundles will be returned if the currently loaded display has no placements, or if there is no display loaded
+	 *		returnAllAvailableIfEmpty = if set to true then the list of all available bundles will be returned if the currently loaded screen has no placements, or if there is no display loaded
 	 *		table = if using the returnAllAvailableIfEmpty option and you expect a list of available bundles to be returned if no display is loaded, you must specify the table the bundles are intended for use with with this option. Either the table name or number may be used.
 	 *		user_id = if specified then placements are only returned if the user has at least read access to the display
 	 * @return array List of placements in display order. Array is keyed on bundle name. Values are arrays with the following keys:
@@ -376,6 +378,8 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 	 * The returned value is a list of arrays; each array contains a 'bundle' specifier than can be passed got Model::get() or SearchResult::get() and a display name
 	 *
 	 * @param mixed $pm_table_name_or_num The table name or number specifying the content type to fetch bundles for. If omitted the content table of the currently loaded display will be used.
+	 * @param array $pa_options Supported options are:
+	 *		NONE YET
 	 * @return array And array of bundles keyed on display label. Each value is an array with these keys:
 	 *		bundle = The bundle name (eg. ca_objects.idno)
 	 *		display = Display label for each available bundle
@@ -395,13 +399,42 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 		$va_defined_bundles = $t_instance->getBundleList(array('includeBundleInfo' => true));		// these are the bundles defined for this type of editor
 		
 		$va_available_bundles = array();
+		
+		$va_elements = ca_metadata_elements::getElementsAsList(true, $pm_table_name_or_num, null, true, false, true);
 		foreach($va_defined_bundles as $vs_bundle => $va_info) {
 			$vs_bundle_proc = preg_replace('!^ca_attribute_!', '', $vs_bundle);
+			$va_additional_settings = array();
 			switch ($va_info['type']) {
 				case 'intrinsic':
 					$va_field_info = $t_instance->getFieldInfo($vs_bundle);
-					//if (isset($va_field_info['IDENTITY']) && $va_field_info['IDENTITY']) { continue(2); }
 					if (isset($va_field_info['DONT_ALLOW_IN_UI']) && $va_field_info['DONT_ALLOW_IN_UI']) { continue(2); }
+					break;
+				case 'preferred_label':
+				case 'nonpreferred_label':
+					$va_additional_settings = array(
+						'usewysiwygeditor' => array(
+							'formatType' => FT_NUMBER,
+							'displayType' => DT_CHECKBOXES,
+							'default' => 0,
+							'width' => 1, 'height' => 1,
+							'label' => _t('Use rich text editor'),
+							'description' => _t('Check this option if you want to use a word-processor like editor with this text field. If you expect users to enter rich text (italic, bold, underline) then you might want to enable this.')
+						)
+					);
+					break;
+				case 'attribute':
+					if ($va_elements[preg_replace('!ca_attribute_!', '', $vs_bundle)]['datatype'] == 1) {		// 1=text
+						$va_additional_settings = array(
+							'usewysiwygeditor' => array(
+								'formatType' => FT_NUMBER,
+								'displayType' => DT_CHECKBOXES,
+								'default' => 0,
+								'width' => 1, 'height' => 1,
+								'label' => _t('Use rich text editor'),
+								'description' => _t('Check this option if you want to use a word-processor like editor with this text field. If you expect users to enter rich text (italic, bold, underline) then you might want to enable this.')
+							)
+						);
+					}
 					break;
 				case 'related_table':
 					if (!($t_rel = $this->_DATAMODEL->getInstanceByTableName($vs_bundle, true))) { continue; }
@@ -566,6 +599,7 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 			$this->errors = $t_restriction->errors();
 			return false;
 		}
+		unset($_SESSION['screen_cache']);
 		return true;
 	}
 	# ----------------------------------------
@@ -611,6 +645,7 @@ class ca_editor_ui_screens extends BundlableLabelableBaseModelWithAttributes {
 				}
 			}
 		}
+		unset($_SESSION['screen_cache']);
 		return true;
 	}
 	# ----------------------------------------

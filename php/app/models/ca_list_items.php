@@ -330,6 +330,7 @@ class ca_list_items extends BundlableLabelableBaseModelWithAttributes implements
 	protected function initLabelDefinitions() {
 		parent::initLabelDefinitions();
 		$this->BUNDLES['ca_objects'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related objects'));
+		$this->BUNDLES['ca_object_lots'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related lots'));
 		$this->BUNDLES['ca_entities'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related entities'));
 		$this->BUNDLES['ca_places'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related places'));
 		$this->BUNDLES['ca_occurrences'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related occurrences'));
@@ -446,8 +447,9 @@ class ca_list_items extends BundlableLabelableBaseModelWithAttributes implements
 			SELECT cli.item_id, cli.list_id, count(*) children
 			FROM ca_list_items cli
 			LEFT JOIN ca_list_items AS cli2 ON cli.item_id = cli2.parent_id
+			INNER JOIN ca_lists AS l ON l.list_id = cli.list_id
 			WHERE 
-				cli.parent_id IS NULL and cli.list_id IN (".join(',', $va_hierarchy_ids).")
+				cli.parent_id IS NULL and cli.list_id IN (".join(',', $va_hierarchy_ids).") ".($pb_vocabularies ? " AND (l.use_as_vocabulary = 1)" : "")."
 			GROUP BY
 				cli.item_id
 		");
@@ -496,10 +498,9 @@ class ca_list_items extends BundlableLabelableBaseModelWithAttributes implements
 	 	} else {
 	 		$vn_hierarchy_id = $this->get('list_id');
 	 	}
-	 	$t_list = new ca_lists();
-	 	$t_list->load($vn_hierarchy_id);
+	 	$t_list = new ca_lists($vn_hierarchy_id);
 	 	
-	 	return $t_list->getLabelForDisplay();
+	 	return $t_list->getLabelForDisplay(false);
 	 }
 	 # ------------------------------------------------------
 	/**
@@ -588,6 +589,22 @@ class ca_list_items extends BundlableLabelableBaseModelWithAttributes implements
 		}
 		
 		return caExtractValuesByUserLocale($va_items);
+	}
+	# ------------------------------------------------------
+	/**
+	 * Override standard implementation to insert list_code for current list_id into returned data. The list_code is required for consumers of export data
+	 * when dealing with lists. 
+	 *
+	 * @param array $pa_options Array of options for BaseModel::getValuesForExport(). No additional options are defined by this subclass.
+	 * @return array Array of data as returned by BaseModel::getValuesForExport() except for added list_code value
+	 */
+	public function getValuesForExport($pa_options=null) {
+		$va_data = parent::getValuesForExport($pa_options);
+		
+		$t_list = new ca_lists($this->get('list_id'));
+		$va_data['list_code'] = $t_list->get('list_code');
+		
+		return $va_data;	
 	}
 	# ------------------------------------------------------
 	/**

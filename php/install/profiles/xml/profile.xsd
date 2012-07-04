@@ -289,6 +289,7 @@
 						<xs:element name="table" type="xs:string" minOccurs="1"
 							maxOccurs="unbounded"/>
 						<xs:element name="type" type="xs:string" minOccurs="0" maxOccurs="1"/>
+						<xs:element name="includeSubtypes" type="xs:string" minOccurs="0" maxOccurs="1"/>
 						<xs:element name="settings" minOccurs="0" maxOccurs="1">
 							<xs:complexType>
 								<xs:sequence>
@@ -305,7 +306,7 @@
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
-					<xs:attribute name="code" type="codeType" use="required"/>
+					<xs:attribute name="code" type="codeType" use="optional"/>
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
@@ -346,7 +347,7 @@
 
 	<xs:complexType name="bundlePlacements">
 		<xs:sequence>
-			<xs:element name="placement" minOccurs="1" maxOccurs="unbounded">
+			<xs:element name="placement" minOccurs="0" maxOccurs="unbounded">
 				<xs:complexType>
 					<xs:sequence>
 						<xs:element name="bundle" type="xs:string" minOccurs="1" maxOccurs="1"/>
@@ -371,7 +372,7 @@
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
-					<xs:attribute name="code" type="codeType" use="required"/>
+					<xs:attribute name="code" type="codeType" use="optional"/>
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -559,7 +559,7 @@ class CataloguingService extends BaseService {
 	# Utilities
 	# -------------------------------------------------------
 	private function getTableInstance($ps_type,$pn_type_id_to_load=null){
-		if(!in_array($ps_type, array("ca_objects", "ca_entities", "ca_places", "ca_occurrences", "ca_collections", "ca_list_items", "ca_object_representations", "ca_storage_locations", "ca_movements", "ca_loans", "ca_tours", "ca_tour_stops"))){
+		if(!in_array($ps_type, array("ca_objects", "ca_entities", "ca_places", "ca_occurrences", "ca_collections", "ca_list_items", "ca_object_representations", "ca_storage_locations", "ca_movements", "ca_loans", "ca_tours", "ca_tour_stops", "ca_sets", "ca_set_items"))){
 			throw new SoapFault("Server", "Invalid type or item_id");
 		} else {
 			require_once(__CA_MODELS_DIR__."/{$ps_type}.php");

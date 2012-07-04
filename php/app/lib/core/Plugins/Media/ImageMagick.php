@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -43,6 +43,7 @@ include_once(__CA_LIB_DIR__."/core/Plugins/IWLPlugMedia.php");
 include_once(__CA_LIB_DIR__."/core/Parsers/TilepicParser.php");
 include_once(__CA_LIB_DIR__."/core/Configuration.php");
 include_once(__CA_APP_DIR__."/helpers/mediaPluginHelpers.php");
+include_once(__CA_LIB_DIR__."/core/Parsers/MediaMetadata/XMPParser.php");
 
 class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 	var $errors = array();
@@ -135,6 +136,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 			'reference-black'	=> 'W',
 			'reference-white'	=> 'W',
 			'no_upsampling'		=> 'W',
+			'faces'				=> 'W',
 			'version'			=> 'W'	// required of all plug-ins
 		),
 		
@@ -434,20 +436,6 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 					$this->filepath = $filepath;
 					$this->metadata = array();
 					
-					$va_raw_metadata = $this->_imageMagickGetMetadata($filepath);
-					foreach($va_raw_metadata as $vs_line) {
-						list($vs_tag, $vs_value) = explode('=', $vs_line);
-						if (!trim($vs_tag) || !trim($vs_value)) { continue; }
-						if (sizeof($va_tmp = explode(':', $vs_tag)) > 1) {
-							$vs_type = strtoupper($va_tmp[0]);
-							$vs_tag = $va_tmp[1];
-						} else {
-							$vs_type = 'GENERIC';
-						}
-						
-						$this->metadata['METADATA_'.$vs_type][$vs_tag] = $vs_value;
-					}
-					
 					# load image properties
 					$this->properties["width"] = $this->handle['width'];
 					$this->properties["height"] = $this->handle['height'];
@@ -458,8 +446,10 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 					$this->properties["bitdepth"] = $this->handle['depth'];
 					$this->properties["resolution"] = $this->handle['resolution'];
 					$this->properties["colorspace"] = $this->handle['colorspace'];
+					$this->properties["faces"] = $this->handle['faces'];
 					
 					$this->ohandle = $this->handle;
+					
 					return 1;
 				} else {
 					# plug-in can't handle format
@@ -487,6 +477,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 		
 		$w = $parameters["width"];
 		$h = $parameters["height"];
+		
 		$cw = $this->get("width");
 		$ch = $this->get("height");
 		
@@ -651,37 +642,50 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 					);
 					
 					if ($do_fill_box_crop) {
-						switch($crop_from) {
-							case 'north_west':
-								$crop_from_offset_y = 0;
-								$crop_from_offset_x = $w - $parameters["width"];
-								break;
-							case 'south_east':
-								$crop_from_offset_x = 0;
-								$crop_from_offset_y = $h - $parameters["height"];
-								break;
-							case 'south_west':
-								$crop_from_offset_x = $w - $parameters["width"];
-								$crop_from_offset_y = $h - $parameters["height"];
-								break;
-							case 'random':
-								$crop_from_offset_x = rand(0, $w - $parameters["width"]);
-								$crop_from_offset_y = rand(0, $h - $parameters["height"]);
-								break;
-							case 'north_east':
-								$crop_from_offset_x = $crop_from_offset_y = 0;
-								break;
-							case 'center':
-							default:
-								if ($w > $parameters["width"]) {
-									$crop_from_offset_x = ceil(($w - $parameters["width"])/2);
-								} else {
-									if ($h > $parameters["height"]) {
-										$crop_from_offset_y = ceil(($h - $parameters["height"])/2);
-									}
+						// use face detection info to intelligently crop
+							if(is_array($this->properties['faces']) && sizeof($this->properties['faces'])) {
+								$va_info = array_shift($this->properties['faces']);
+								$crop_from_offset_x = ceil($va_info['x'] * (($scale_factor_w > $scale_factor_h) ? $scale_factor_w : $scale_factor_h));
+								$crop_from_offset_x -= ceil(0.15 * $parameters["width"]);	// since face will be tightly cropped give it some room
+								$crop_from_offset_y = ceil($va_info['y'] * (($scale_factor_w > $scale_factor_h) ? $scale_factor_w : $scale_factor_h));
+								$crop_from_offset_y -= ceil(0.15 * $parameters["height"]);	// since face will be tightly cropped give it some room
+								
+								// Don't try to crop beyond image boundaries, you just end up scaling the image, often awkwardly
+								if ($crop_from_offset_x > ($w - $parameters["width"])) { $crop_from_offset_x = 0; }
+								if ($crop_from_offset_y > ($h - $parameters["height"])) { $crop_from_offset_y = 0; }
+							} else {
+								switch($crop_from) {
+									case 'north_west':
+										$crop_from_offset_y = 0;
+										$crop_from_offset_x = $w - $parameters["width"];
+										break;
+									case 'south_east':
+										$crop_from_offset_x = 0;
+										$crop_from_offset_y = $h - $parameters["height"];
+										break;
+									case 'south_west':
+										$crop_from_offset_x = $w - $parameters["width"];
+										$crop_from_offset_y = $h - $parameters["height"];
+										break;
+									case 'random':
+										$crop_from_offset_x = rand(0, $w - $parameters["width"]);
+										$crop_from_offset_y = rand(0, $h - $parameters["height"]);
+										break;
+									case 'north_east':
+										$crop_from_offset_x = $crop_from_offset_y = 0;
+										break;
+									case 'center':
+									default:
+										if ($w > $parameters["width"]) {
+											$crop_from_offset_x = ceil(($w - $parameters["width"])/2);
+										} else {
+											if ($h > $parameters["height"]) {
+												$crop_from_offset_y = ceil(($h - $parameters["height"])/2);
+											}
+										}
+										break;
 								}
-								break;
-						}
+							}
 						$this->handle['ops'][] = array(
 							'op' => 'crop',
 							'width' => $parameters["width"],
@@ -882,6 +886,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 			$this->properties["quality"] = "";
 			$this->properties["mimetype"] = $this->handle['mimetype'];
 			$this->properties["typename"] = $this->handle['magick'];
+			$this->properties["faces"] = $this->handle['faces'];
 			return true;
 		}
 		return false;
@@ -924,10 +929,20 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 	private function _imageMagickGetMetadata($ps_filepath) {
 		if (caMediaPluginImageMagickInstalled($this->ops_imagemagick_path)) {
 			$va_metadata = array();
-			exec($this->ops_imagemagick_path."/identify -format '%[EXIF:*]' \"".$ps_filepath.'"', $va_output, $vn_return);
-			if ($va_output[0]) { $va_metadata = array_merge($va_metadata, $va_output); }
+			
+			if(function_exists('exif_read_data')) {
+				if (is_array($va_exif = @exif_read_data($ps_filepath, 'EXIF', true, false))) { $va_metadata['EXIF'] = $va_exif; }
+			}
+			
+			$o_xmp = new XMPParser();
+			if ($o_xmp->parse($ps_filepath)) {
+				if (is_array($va_xmp_metadata = $o_xmp->getMetadata()) && sizeof($va_xmp_metadata)) {
+					$va_metadata['XMP'] = $va_xmp_metadata;
+				}
+			}
+			
 			exec($this->ops_imagemagick_path."/identify -format '%[DPX:*]' \"".$ps_filepath.'"', $va_output, $vn_return);
-			if ($va_output[0]) { $va_metadata = array_merge($va_metadata, $va_output); }
+			if ($va_output[0]) { $va_metadata['DPX'] = $va_output; }
 			
 			$va_iptc_tags = array(
 				'credit' => '2:110',
@@ -961,12 +976,12 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 				$va_output = array();
 				exec($this->ops_imagemagick_path."/identify -format '%[IPTC:".$vs_tag_code."]' \"".$ps_filepath.'"', $va_output, $vn_return);
 				if ($va_output[0]) {
-					$va_iptc[] = 'IPTC:'.str_replace(":", ",", $vs_tag_code).' ['.$vs_tag_name.']='.$va_output[0];
+					$va_iptc[str_replace(":", ",", $vs_tag_code).' ['.$vs_tag_name.']'] = $va_output[0];
 				}
 			}
 			
 			if (sizeof($va_iptc)) {
-				$va_metadata = array_merge($va_metadata, $va_iptc);
+				$va_metadata['IPTC'] = $va_iptc;
 			}
 			return $va_metadata;
 		}
@@ -975,6 +990,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 	# ------------------------------------------------
 	private function _imageMagickRead($ps_filepath) {
 		if (caMediaPluginImageMagickInstalled($this->ops_imagemagick_path)) {
+		
 			exec($this->ops_imagemagick_path.'/identify -format "%m;%w;%h;%[colorspace];%[depth];%[xresolution];%[yresolution]\n" "'.$ps_filepath."\" 2> /dev/null", $va_output, $vn_return);
 			
 			$va_tmp = explode(';', $va_output[0]);
@@ -983,11 +999,35 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 				return null;
 			}
 			
+			$this->metadata = $this->_imageMagickGetMetadata($ps_filepath);
+			
+			//
+			// Rotate incoming image as needed
+			//
+			if(isset($this->metadata['EXIF']) && is_array($va_exif = $this->metadata['EXIF'])) {
+				if (isset($va_exif['IFD0']['Orientation'])) {
+					$vn_orientation = $va_exif['IFD0']['Orientation'];
+					switch($vn_orientation) {
+						case 3:
+							$this->properties["orientation_rotate"] = -180;
+							break;
+						case 6:
+							$this->properties["orientation_rotate"] = 90;
+							break;
+						case 8:
+							$this->properties["orientation_rotate"] = -90;
+							break;
+					}
+				}
+			}
+			
+			$va_faces = caDetectFaces($ps_filepath, $va_tmp[1], $va_tmp[2]);			
+			
 			return array(
 				'mimetype' => $this->magickToMimeType($va_tmp[0]),
 				'magick' => $va_tmp[0],
-				'width' => $va_tmp[1],
-				'height' => $va_tmp[2],
+				'width' => in_array($this->properties["orientation_rotate"], array(90, -90)) ? $va_tmp[2] : $va_tmp[1],
+				'height' => in_array($this->properties["orientation_rotate"], array(90, -90)) ? $va_tmp[1] : $va_tmp[2],
 				'colorspace' => $va_tmp[3],
 				'depth' => $va_tmp[4],
 				'resolution' => array(
@@ -995,6 +1035,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 					'y' => $va_tmp[6]
 				),
 				'ops' => array(),
+				'faces' => $va_faces,
 				'filepath' => $ps_filepath
 			);
 		}
@@ -1033,7 +1074,7 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 						break;
 					case 'rotate':
 						if (!is_numeric($va_op['angle'])) { break; }
-						$va_ops['convert'] = '-rotate '.$va_op['angle'];
+						$va_ops['convert'][] = '-rotate '.$va_op['angle'];
 						break;
 					case 'filter_despeckle':
 						$va_ops['convert'][] = '-despeckle';
@@ -1057,6 +1098,10 @@ class WLPlugMediaImageMagick Extends WLPlug Implements IWLPlugMedia {
 						$va_ops['convert'][] = $vs_tmp;
 						break;
 				}
+			}
+			
+			if (isset($this->properties["orientation_rotate"]) && ($this->properties["orientation_rotate"] != 0)) {
+				$va_ops['convert'][] = '-rotate '.$this->properties["orientation_rotate"];
 			}
 			
 			if ($this->properties['gamma']) {

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2006-2011 Whirl-i-Gig
+ * Copyright 2006-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -257,6 +257,29 @@ class TimeExpressionParser {
 										}
 									}
 								}
+							}
+							
+							//
+							// Look for MYA dates
+							//
+							$va_peek = $this->peekToken(2);
+							if ($va_peek['type'] == TEP_TOKEN_MYA) {
+								$va_dates['start'] = array(
+									'month' => 1, 'day' => 1, 'year' => intval($va_token['value']) * -1000000,
+									'hours' => null, 'minutes' => null, 'seconds' => null,
+									'uncertainty' => 0, 'uncertainty_units' => '', 'is_circa' => false, 'dont_window' => true
+								);
+								$va_dates['end'] = array(
+									'month' => 12, 'day' => 31, 'year' => intval($va_token['value']) * -1000000,
+									'hours' => null, 'minutes' => null, 'seconds' => null,
+									'uncertainty' => 0, 'uncertainty_units' => '', 'is_circa' => false, 'dont_window' => true
+								);
+								$this->skipToken();
+								$this->skipToken();
+							
+								$vn_state = TEP_STATE_ACCEPT;
+								$vb_can_accept = true;
+								break(2);
 							}
 							break;
 						# ----------------------
@@ -647,9 +670,37 @@ class TimeExpressionParser {
 	
 		# remove commas
 		$ps_expression = str_replace(',', '', $ps_expression);
+				
+		# remove articles
+		$definiteArticles = $this->opo_language_settings->getList("definiteArticles");
+		if (sizeof($definiteArticles)) {
+			$ps_expression=" ".$ps_expression." ";
+			foreach($definiteArticles as $article) {
+				$ps_expression = str_ireplace(" ".$article." ", " ", $ps_expression);
+			}
+		}
+		$indefiniteArticles = $this->opo_language_settings->getList("indefiniteArticles");
+		if (sizeof($indefiniteArticles)) {
+			$ps_expression=" ".$ps_expression." ";
+			foreach($indefiniteArticles as $article) {
+				$ps_expression = str_ireplace(" ".$article." ", " ", $ps_expression);
+			}
+		}
+		$ps_expression=trim($ps_expression);
+		
+		#replace time keywords containing spaces with conf defined replacement, allowing treatments for expression like "av. J.-C." in french
+		$wordsWithSpaces = $this->opo_language_settings->getList("wordsWithSpaces");
+		$wordsWithSpacesReplacements = $this->opo_language_settings->getList("wordsWithSpacesReplacements");
+		if ((sizeof($wordsWithSpaces)) && (sizeof($wordsWithSpacesReplacements))) {
+			$ps_expression=str_replace($wordsWithSpaces,$wordsWithSpacesReplacements,$ps_expression);
+		}
+		
 		# separate '?' from words
 		$ps_expression = preg_replace('!([^\?\/]+)\?{1}([^\?]+)!', '\1 ? \2', $ps_expression);
 		$ps_expression = preg_replace('!([^\?\/]+)\?{1}$!', '\1 ?', $ps_expression);
+		
+		# Remove UTC offset if present
+		$ps_expression = preg_replace("/(T[\d]{1,2}:[\d]{2}:[\d]{2})-[\d]{1,2}:[\d]{2}/i", "$1", $ps_expression);
 		
 		# distinguish w3cdtf dates since we already use '-' for ranges
 		$ps_expression = preg_replace("/([\d]{4})-([\d]{2})-([\d]{2})/", "$1#$2#$3", $ps_expression);
@@ -725,8 +776,8 @@ class TimeExpressionParser {
 		
 		// check for ISO 8601 date/times... if we find one split the time off into a separate token
 		$va_datetime_conjunctions = $this->opo_language_settings->getList('dateTimeConjunctions');
-		$ps_expression = preg_replace("/([\d]+)T([\d]+)/", "$1 ".$va_datetime_conjunctions[0]." $2", $ps_expression);
-
+		$ps_expression = preg_replace("/([\d]+)T([\d]+)/i", "$1 ".$va_datetime_conjunctions[0]." $2", $ps_expression);
+		
 		// support year ranges in the form yyyy/yyyy
 		$ps_expression = preg_replace("!^([\d]{4})/([\d]{4})$!", "$1 - $2", trim($ps_expression));
 
@@ -948,6 +999,7 @@ class TimeExpressionParser {
 										# ----------------------
 										case TEP_TOKEN_ERA:
 											$vn_state = TEP_STATE_DATE_GET_ERA;
+											$va_date['dont_window'] = true;
 											break;
 										# ----------------------
 										case TEP_TOKEN_TIME_CONJUNCTION:
@@ -1734,7 +1786,21 @@ class TimeExpressionParser {
 				$this->setUnixTimestamps($vn_start_unixtime, $vn_end_unixtime);
 			} else {
 				// dates are outside the Unixtime domain
-				$this->setUnixTimestamps(-1, -1);
+				if (($pa_dates['start']['year'] >= 1970) && ($pa_dates['start']['year'] < 2037)) {
+					$vn_start_unixtime = mktime(
+						$pa_dates['start']['hours'], $pa_dates['start']['minutes'], $pa_dates['start']['seconds'], 
+						$pa_dates['start']['month'], $pa_dates['start']['day'], $pa_dates['start']['year']
+					);
+					$this->setUnixTimestamps($vn_start_unixtime, (pow(2,32)/2) - 1);
+				} else {
+					if (($pa_dates['end']['year'] >= 1970) && ($pa_dates['end']['year'] <= 2037)) {
+						$vn_end_unixtime = mktime(
+							$pa_dates['end']['hours'], $pa_dates['end']['minutes'], $pa_dates['end']['seconds'], 
+							$pa_dates['end']['month'], $pa_dates['end']['day'], $pa_dates['end']['year']
+						);
+						$this->setUnixTimestamps(1, $vn_end_unixtime);
+					}
+				}
 			}
 			# create historic timestamps
 			# -- encode uncertainty and circa status
@@ -1864,7 +1930,7 @@ class TimeExpressionParser {
 	#  useQuarterCenturySyntaxForDisplay (true|false) [default is false; if true dates ranging over uniform quarter centuries (eg. 1900 - 1925, 1925 - 1950, 1950 - 1975, 1975-2000) will be output in the format "20 Q1" (eg. 1st quarter of 20th century... 1900 - 1925)
 	function getText($pa_options=null) {
 		if (!$pa_options) { $pa_options = array(); }
-		foreach(array('dateFormat', 'dateDelimiter', 'uncertaintyIndicator', 'showADEra', 'timeFormat', 'timeDelimiter', 'circaIndicator', 'beforeQualifier', 'afterQualifier', 'presentDate', 'useQuarterCenturySyntaxForDisplay') as $vs_opt) {
+		foreach(array('dateFormat', 'dateDelimiter', 'uncertaintyIndicator', 'showADEra', 'timeFormat', 'timeDelimiter', 'circaIndicator', 'beforeQualifier', 'afterQualifier', 'presentDate', 'useQuarterCenturySyntaxForDisplay', 'timeOmit') as $vs_opt) {
 			if (!isset($pa_options[$vs_opt]) && ($vs_opt_val = $this->opo_datetime_settings->get($vs_opt))) {
 				$pa_options[$vs_opt] = $vs_opt_val;
 			}
@@ -2437,7 +2503,7 @@ class TimeExpressionParser {
 		if ($vb_month_comes_first) {
 			if ($vs_month) { $va_date[] = $vs_month; }
 			if ($vs_day) { 
-				if ((bool)$this->opo_datetime_settings->get('showCommaAfterDayForTextDates')) {
+				if (((bool)$this->opo_datetime_settings->get('showCommaAfterDayForTextDates')) && ($pa_options['dateFormat'] == 'text') && $vs_year) {
 					$vs_day .= ",";
 				}
 				$va_date[] = $vs_day;
@@ -2628,7 +2694,7 @@ class TimeExpressionParser {
 			(!($pa_date['hours'] == 0 && $pa_date['minutes'] == 0 && $pa_date['seconds'] == 0 && ($ps_mode == 'START'))) &&
 			(!($pa_date['hours'] == 23 && $pa_date['minutes'] == 59 && $pa_date['seconds'] == 59 && ($ps_mode == 'END')))
 		) {
-			$vs_date .= 'T'.$pa_date['hours'].':'.$pa_date['minutes'].':'.$pa_date['seconds'];
+			$vs_date .= 'T'.sprintf("%02d", $pa_date['hours']).':'.sprintf("%02d", $pa_date['minutes']).':'.sprintf("%02d", $pa_date['seconds']).'Z';
 		}
 		
 		return $vs_date;

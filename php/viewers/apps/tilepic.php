@@ -47,7 +47,9 @@ $vs_media_root = $vo_conf->get('ca_media_root_dir');
 
 if (file_exists($vs_media_root."/".$ps_filepath.".tpc")) {
 	header("Content-type: image/jpeg");
-	TilepicParser::getTileQuickly($vs_media_root."/".$ps_filepath.".tpc", $pn_tile);
+	$vs_output = TilepicParser::getTileQuickly($vs_media_root."/".$ps_filepath.".tpc", $pn_tile);
+	header("Content-Length: ".strlen($vs_output));
+	print $vs_output;
 	exit;
 } else {
 	die("Invalid file");

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -33,7 +33,6 @@
  /**
    *
    */
-
 require_once(__CA_LIB_DIR__."/core/AccessRestrictions.php");
 require_once(__CA_APP_DIR__.'/models/ca_user_roles.php');
 include_once(__CA_APP_DIR__."/helpers/utilityHelpers.php");
@@ -86,7 +85,7 @@ BaseModel::$s_ca_models_definitions['ca_users'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('First name'), 'DESCRIPTION' => _t('The forename of this user.'),
-				'BOUNDS_LENGTH' => array(1,255)
+				'BOUNDS_LENGTH' => array(0,255)
 		),
 		'lname' => array(
 				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
@@ -140,6 +139,13 @@ BaseModel::$s_ca_models_definitions['ca_users'] = array(
 				'DEFAULT' => '',
 				'LABEL' => _t('Confirmation key'), 'DESCRIPTION' => _t('Confirmation key used for email verification.'),
 				'BOUNDS_LENGTH' => array(0,32)
+		),
+		'entity_id' => array(
+				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_FIELD, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => true, 
+				'DEFAULT' => '',
+				'LABEL' => _t('Entity'), 'DESCRIPTION' => _t('The entity this user login is associated with.')
 		)
  	)
 );
@@ -254,6 +260,22 @@ class ca_users extends BaseModel {
 
 	protected $FIELDS;
 	
+	/**
+	 * authentication configuration
+	 */
+	protected $opo_auth_config = null;
+	
+	
+	/**
+	 * User and group role caches
+	 */
+	static $s_user_role_cache = array();
+	static $s_group_role_cache = array();
+	static $s_user_type_access_cache = array();
+	static $s_user_bundle_access_cache = array();
+	static $s_user_action_access_cache = array();
+	static $s_user_type_with_access_cache = array();
+	
 	# ------------------------------------------------------
 	# --- Constructor
 	#
@@ -267,6 +289,8 @@ class ca_users extends BaseModel {
 	# ------------------------------------------------------
 	public function __construct($pn_id=null) {
 		parent::__construct($pn_id);	# call superclass constructor	
+		
+		$this->opo_auth_config = Configuration::load($this->getAppConfig()->get("authentication_config"));
 	}
 	# ----------------------------------------
 	/**
@@ -343,6 +367,9 @@ class ca_users extends BaseModel {
 		if ($this->opa_volatile_user_vars_have_changed) {
 			$this->set("volatile_vars",$this->opa_volatile_user_vars);
 		}
+		
+		unset(ca_users::$s_user_role_cache[$this->getPrimaryKey()]);
+		unset(ca_users::$s_group_role_cache[$this->getPrimaryKey()]);
 		return parent::update();
 	}
 	# ----------------------------------------
@@ -388,9 +415,10 @@ class ca_users extends BaseModel {
 	 * @access public
 	 * @param string $ps_key Name of user variable
 	 * @param mixed $pm_val Value of user variable. Can be string, number or array.
-	 * @param array $pa_options Associative array of options. Support options are:
+	 * @param array $pa_options Associative array of options. Supported options are:
 	 *		- ENTITY_ENCODE_INPUT = Convert all "special" HTML characters in variable value to entities; default is true
 	 *		- URL_ENCODE_INPUT = Url encodes variable value; default is  false
+	 *		- volatile = Places value in "volatile" variable storage, which is usually faster. Only store small values, not large blocks of text or binary data, that are expected to frequently as volatile.
 	 * @return bool Returns true on successful save, false if the variable name or value was invalid
 	 */	
 	public function setVar ($ps_key, $pm_val, $pa_options=null) {
@@ -777,23 +805,27 @@ class ca_users extends BaseModel {
 	 */
 	public function getUserRoles() {
 		if ($pn_user_id = $this->getPrimaryKey()) {
-			$o_db = $this->getDb();
-			$qr_res = $o_db->query("
-				SELECT wur.role_id, wur.name, wur.code, wur.description, wur.rank
-				FROM ca_user_roles wur
-				INNER JOIN ca_users_x_roles AS wuxr ON wuxr.role_id = wur.role_id
-				WHERE wuxr.user_id = ?
-				ORDER BY wur.rank
-			", (int)$pn_user_id);
-			
-			$va_roles = array();
-			while($qr_res->nextRow()) {
-				$va_roles[$qr_res->get("role_id")] = $qr_res->getRow();
+			if (isset(ca_users::$s_user_role_cache[$pn_user_id])) {
+				return ca_users::$s_user_role_cache[$pn_user_id];
+			} else {
+				$o_db = $this->getDb();
+				$qr_res = $o_db->query("
+					SELECT wur.role_id, wur.name, wur.code, wur.description, wur.rank, wur.vars
+					FROM ca_user_roles wur
+					INNER JOIN ca_users_x_roles AS wuxr ON wuxr.role_id = wur.role_id
+					WHERE wuxr.user_id = ?
+					ORDER BY wur.rank
+				", (int)$pn_user_id);
+				
+				$va_roles = array();
+				while($qr_res->nextRow()) {
+					$va_roles[$qr_res->get("role_id")] = $qr_res->getRow();
+				}
+				
+				return ca_users::$s_user_role_cache[$pn_user_id] = $va_roles;
 			}
-			
-			return $va_roles;
 		} else {
-			return false;
+			return array();
 		}
 	}
 	# ----------------------------------------
@@ -1072,24 +1104,28 @@ class ca_users extends BaseModel {
 	 */
 	public function getGroupRoles() {
 		if ($pn_user_id = $this->getPrimaryKey()) {
-			$o_db = $this->getDb();
-			$qr_res = $o_db->query("
-				SELECT wur.role_id, wur.name, wur.code, wur.description, wur.rank
-				FROM ca_user_roles wur
-				INNER JOIN ca_groups_x_roles AS wgxr ON wgxr.role_id = wur.role_id
-				INNER JOIN ca_users_x_groups AS wuxg ON wuxg.group_id = wgxr.group_id
-				WHERE wuxg.user_id = ?
-				ORDER BY wur.rank
-			", (int)$pn_user_id);
-			
-			$va_roles = array();
-			while($qr_res->nextRow()) {
-				$va_roles[$qr_res->get("role_id")] = $qr_res->getRow();
+			if (isset(ca_users::$s_group_role_cache[$pn_user_id])) {
+				return ca_users::$s_group_role_cache[$pn_user_id];
+			} else {
+				$o_db = $this->getDb();
+				$qr_res = $o_db->query("
+					SELECT wur.role_id, wur.name, wur.code, wur.description, wur.rank, wur.vars
+					FROM ca_user_roles wur
+					INNER JOIN ca_groups_x_roles AS wgxr ON wgxr.role_id = wur.role_id
+					INNER JOIN ca_users_x_groups AS wuxg ON wuxg.group_id = wgxr.group_id
+					WHERE wuxg.user_id = ?
+					ORDER BY wur.rank
+				", (int)$pn_user_id);
+				
+				$va_roles = array();
+				while($qr_res->nextRow()) {
+					$va_roles[$qr_res->get("role_id")] = $qr_res->getRow();
+				}
+				
+				return ca_users::$s_group_role_cache[$pn_user_id] = $va_roles;
 			}
-			
-			return $va_roles;
 		} else {
-			return false;
+			return array();
 		}
 	}
 	# ----------------------------------------
@@ -1437,8 +1473,49 @@ class ca_users extends BaseModel {
 					}
 					break;
 				# ---------------------------------
+				case 'FT_OBJECT_EDITOR_UI':
+				case 'FT_OBJECT_LOT_EDITOR_UI':
+				case 'FT_ENTITY_EDITOR_UI':
+				case 'FT_PLACE_EDITOR_UI':
+				case 'FT_OCCURRENCE_EDITOR_UI':
+				case 'FT_COLLECTION_EDITOR_UI':
+				case 'FT_STORAGE_LOCATION_EDITOR_UI':
+				case 'FT_OBJECT_REPRESENTATION_EDITOR_UI':
+				case 'FT_REPRESENTATION_ANNOTATION_EDITOR_UI':
+				case 'FT_SET_EDITOR_UI':
+				case 'FT_SET_ITEM_EDITOR_UI':
+				case 'FT_LIST_EDITOR_UI':
+				case 'FT_LIST_ITEM_EDITOR_UI':
+				case 'FT_LOAN_EDITOR_UI':
+				case 'FT_MOVEMENT_EDITOR_UI':
+				case 'FT_TOUR_EDITOR_UI':
+				case 'FT_TOUR_STOP_EDITOR_UI':
+				case 'FT_SEARCH_FORM_EDITOR_UI':
+				case 'FT_BUNDLE_DISPLAY_EDITOR_UI':
+				case 'FT_RELATIONSHIP_TYPE_EDITOR_UI':
+				case 'FT_USER_INTERFACE_EDITOR_UI':
+				case 'FT_USER_INTERFACE_SCREEN_EDITOR_UI':
+				case 'FT_IMPORT_EXPORT_MAPPING_EDITOR_UI':
+				case 'FT_IMPORT_EXPORT_MAPPING_GROUP_EDITOR_UI':
+					$vn_table_num = $this->_editorPrefFormatTypeToTableNum($va_pref_info["formatType"]);
+					
+					$va_valid_uis = $this->_getUIListByType($vn_table_num);
+					if (is_array($ps_value)) {
+						foreach($ps_value as $vn_type_id => $vn_ui_id) {
+							if (!isset($va_valid_uis[$vn_type_id][$vn_ui_id])) {
+								if (!isset($va_valid_uis['__all__'][$vn_ui_id])) {
+									return false;
+								}
+							}
+						}
+					}
+					
+					return true;
+					break;
+				# ---------------------------------
 				default:
-					return "Configuration error: invalid format type for $ps_pref";
+					// No checking performed
+					return true;
 					break;
 				# ---------------------------------
 			}
@@ -1505,7 +1582,6 @@ class ca_users extends BaseModel {
 					break;
 				# ---------------------------------
 				case 'DT_SELECT':
-					
 					switch($va_pref_info['formatType']) {
 						case 'FT_UI_LOCALE':
 							$va_locales = array();
@@ -1566,70 +1642,72 @@ class ca_users extends BaseModel {
 						case 'FT_SET_ITEM_EDITOR_UI':
 						case 'FT_LIST_EDITOR_UI':
 						case 'FT_LIST_ITEM_EDITOR_UI':
+						case 'FT_LOAN_EDITOR_UI':
+						case 'FT_MOVEMENT_EDITOR_UI':
+						case 'FT_TOUR_EDITOR_UI':
+						case 'FT_TOUR_STOP_EDITOR_UI':
+						case 'FT_SEARCH_FORM_EDITOR_UI':
+						case 'FT_BUNDLE_DISPLAY_EDITOR_UI':
+						case 'FT_RELATIONSHIP_TYPE_EDITOR_UI':
+						case 'FT_USER_INTERFACE_EDITOR_UI':
+						case 'FT_USER_INTERFACE_SCREEN_EDITOR_UI':
+						case 'FT_IMPORT_EXPORT_MAPPING_EDITOR_UI':
+						case 'FT_IMPORT_EXPORT_MAPPING_GROUP_EDITOR_UI':
 						
-							switch($va_pref_info['formatType']) {
-								case 'FT_OBJECT_EDITOR_UI':
-									$vn_table_num = 57;
-									break;
-								case 'FT_OBJECT_LOT_EDITOR_UI':
-									$vn_table_num = 51;
-									break;
-								case 'FT_ENTITY_EDITOR_UI':
-									$vn_table_num = 20;
-									break;
-								case 'FT_PLACE_EDITOR_UI':
-									$vn_table_num = 72;
-									break;
-								case 'FT_OCCURRENCE_EDITOR_UI':
-									$vn_table_num = 67;
-									break;
-								case 'FT_COLLECTION_EDITOR_UI':
-									$vn_table_num = 13;
-									break;
-								case 'FT_STORAGE_LOCATION_EDITOR_UI':
-									$vn_table_num = 89;
-									break;
-								case 'FT_OBJECT_REPRESENTATION_EDITOR_UI':
-									$vn_table_num = 56;
-									break;
-								case 'FT_REPRESENTATION_ANNOTATION_EDITOR_UI':
-									$vn_table_num = 82;
-									break;
-								case 'FT_SET_EDITOR_UI':
-									$vn_table_num = 103;
-									break;
-								case 'FT_SET_ITEM_EDITOR_UI':
-									$vn_table_num = 105;
-									break;
-								case 'FT_LIST_EDITOR_UI':
-									$vn_table_num = 36;
-									break;
-								case 'FT_LIST_ITEM_EDITOR_UI':
-									$vn_table_num = 33;
-									break;
-							}
-							$qr_uis = $o_db->query("
-								SELECT *
-								FROM ca_editor_uis ceui
-								INNER JOIN ca_editor_ui_labels AS ceuil ON ceui.ui_id = ceuil.ui_id
-								WHERE
-									(ceui.user_id = ? OR ceui.is_system_ui = 1) AND (ceui.editor_type = ?)
-							", (int)$this->getPrimaryKey(), (int)$vn_table_num);
-							$va_opts = array();
-							while($qr_uis->nextRow()) {
-								$va_opts[$qr_uis->get('ui_id')][$qr_uis->get('locale_id')] = $qr_uis->get('name');
+							$vn_table_num = $this->_editorPrefFormatTypeToTableNum($va_pref_info['formatType']);
+							$t_instance = $this->getAppDatamodel()->getInstanceByTableNum($vn_table_num, true);
+							
+							$va_values = $this->getPreference($ps_pref);
+							if (!is_array($va_values)) { $va_values = array(); }
+							
+							if (method_exists($t_instance, 'getTypeFieldName') && ($t_instance->getTypeFieldName())) {
+								
+								$vs_output = '';
+								$va_ui_list_by_type = $this->_getUIListByType($vn_table_num);
+								
+								$va_types = $t_instance->getTypeList(array('returnHierarchyLevels' => true));
+								
+								if(!is_array($va_types) || !sizeof($va_types)) { $va_types = array(1 => array()); }	// force ones with no types to get processed for __all__
+								foreach($va_types as $vn_type_id => $va_type) {
+									$va_opts = array();
+									
+									// print out type-specific
+									if (is_array($va_ui_list_by_type[$vn_type_id])) {
+										foreach(caExtractValuesByUserLocale($va_ui_list_by_type[$vn_type_id]) as $vn_ui_id => $vs_label) {
+											$va_opts[$vn_ui_id] = $vs_label;
+										}
+									}
+									
+									// print out generic
+									if (is_array($va_ui_list_by_type['__all__'])) {
+										foreach(caExtractValuesByUserLocale($va_ui_list_by_type['__all__']) as $vn_ui_id => $vs_label) {
+											$va_opts[$vn_ui_id] = $vs_label;
+										}
+									}
+									
+									if (!is_array($va_opts) || (sizeof($va_opts) == 0)) { continue; }
+				
+									$vs_output .= "<tr><td>".str_repeat("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", (int)$va_type['LEVEL']).$va_type['name_singular']."</td><td><select name='pref_{$ps_pref}_{$vn_type_id}'>\n";
+									foreach($va_opts as $vs_val => $vs_opt) {
+										$vs_selected = ($vs_val == $va_values[$vn_type_id]) ? "SELECTED" : "";
+										$vs_output .= "<option value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."' {$vs_selected}>{$vs_opt}</option>\n";	
+									}
+									$vs_output .= "</select></td></tr>\n";
+								}
+							} else {
+								
+								$va_opts = $this->_getUIList($vn_table_num);
+								
+								if (!is_array($va_opts) || (sizeof($va_opts) == 0)) { $vs_output = ''; break(2); }
+								
+								$vs_output = "<tr><td> </td><td><select name='pref_$ps_pref'>\n";
+								foreach($va_opts as $vs_val => $vs_opt) {
+									$vs_selected = ($vs_val == $vs_current_value) ? "SELECTED" : "";
+									$vs_output .= "<option value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."' $vs_selected>".$vs_opt."</option>\n";	
+								}
+								$vs_output .= "</select></td></tr>\n";
 							}
 							
-							$va_opts = caExtractValuesByUserLocale($va_opts);
-							
-							if (!is_array($va_opts) || (sizeof($va_opts) == 0)) { $vs_output = ''; break(2); }
-							
-							$vs_output = "<select name='pref_$ps_pref'>\n";
-							foreach($va_opts as $vs_val => $vs_opt) {
-								$vs_selected = ($vs_val == $vs_current_value) ? "SELECTED" : "";
-								$vs_output .= "<option value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."' $vs_selected>".$vs_opt."</option>\n";	
-							}
-							$vs_output .= "</select>\n";
 							break(2);
 						default:
 							$va_opts = $va_pref_info["choiceList"];
@@ -1638,7 +1716,7 @@ class ca_users extends BaseModel {
 					if (!is_array($va_opts) || (sizeof($va_opts) == 0)) { $vs_output = ''; break; }
 					
 					
-					$vs_output = "<select name='pref_$ps_pref'>\n";
+					$vs_output = "<select name='pref_{$ps_pref}'>\n";
 					foreach($va_opts as $vs_opt => $vs_val) {
 						$vs_selected = ($vs_val == $vs_current_value) ? "selected='1'" : "";
 						$vs_output .= "<option value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."' $vs_selected>".$vs_opt."</option>\n";	
@@ -1675,6 +1753,30 @@ class ca_users extends BaseModel {
 						if ($vb_use_table) {
 							$vs_output .= "</table>";
 						}
+					}
+					break;
+				# ---------------------------------
+				case 'DT_STATEPROV_LIST':
+					$vs_output .= caHTMLSelect("pref_{$ps_pref}_select", array(), array('id' => "pref_{$ps_pref}_select"), array('value' => $vs_current_value));
+					$vs_output .= caHTMLTextInput("pref_{$ps_pref}_name", array('id' => "pref_{$ps_pref}_text", 'value' => $vs_current_value));
+					
+					break;
+				# ---------------------------------
+				case 'DT_COUNTRY_LIST':
+					$vs_output .= caHTMLSelect("pref_{$ps_pref}", caGetCountryList(), array('id' => "pref_{$ps_pref}"), array('value' => $vs_current_value));
+						
+					if ($va_pref_info['stateProvPref']) {
+						$vs_output .="<script type='text/javascript'>\n";
+						$vs_output .= "var caStatesByCountryList = ".json_encode(caGetStateList()).";\n";
+						
+						$vs_output .= "
+							jQuery('#pref_{$ps_pref}').click({countryID: 'pref_{$ps_pref}', stateProvID: 'pref_".$va_pref_info['stateProvPref']."', value: '".addslashes($this->getPreference($va_pref_info['stateProvPref']))."', statesByCountryList: caStatesByCountryList}, caUI.utils.updateStateProvinceForCountry);
+							jQuery(document).ready(function() {
+								caUI.utils.updateStateProvinceForCountry({data: {countryID: 'pref_{$ps_pref}', stateProvID: 'pref_".$va_pref_info['stateProvPref']."', value: '".addslashes($this->getPreference($va_pref_info['stateProvPref']))."', statesByCountryList: caStatesByCountryList}});
+							});
+						";
+						
+						$vs_output .="</script>\n";
 					}
 					break;
 				# ---------------------------------
@@ -1731,7 +1833,7 @@ class ca_users extends BaseModel {
 				$vs_format = str_replace("^DESCRIPTION", _t($va_pref_info["description"]), $vs_format);
 			} else {
 				// no explicit placement of description text, so...
-				$vs_field_id = 'pref_'.$ps_pref;
+				$vs_field_id = "pref_{$ps_pref}_container";
 				$vs_format = str_replace("^LABEL",'<span id="'.$vs_field_id.'">'._t($va_pref_info["label"]).'</span>', $vs_format);
 				
 				TooltipManager::add('#'.$vs_field_id, "<h3>".$va_pref_info["label"]."</h3>".$va_pref_info["description"]);
@@ -1741,6 +1843,184 @@ class ca_users extends BaseModel {
 		} else {
 			return "";
 		}
+	}
+	# ----------------------------------------
+	/**
+	 *
+	 */
+	public function _getUIListByType($pn_table_num) {
+		if(!$this->getPrimaryKey()) { return false; }
+		$vs_group_sql = '';
+		if (is_array($va_groups = $this->getUserGroups()) && sizeof($va_groups)) {
+			$vs_group_sql = " (
+				(ceui.ui_id IN (
+						SELECT ui_id 
+						FROM ca_editor_uis_x_user_groups 
+						WHERE 
+							group_id IN (".join(',', array_keys($va_groups)).")
+					)
+				)
+			) OR ";
+		}
+		
+		$o_db = $this->getDb();
+		$qr_uis = $o_db->query("
+			SELECT ceui.ui_id, ceuil.name, ceuil.locale_id, ceuitr.type_id
+			FROM ca_editor_uis ceui
+			INNER JOIN ca_editor_ui_labels AS ceuil ON ceui.ui_id = ceuil.ui_id
+			LEFT JOIN ca_editor_ui_type_restrictions AS ceuitr ON ceui.ui_id = ceuitr.ui_id 
+			WHERE
+				(
+					ceui.user_id = ? OR 
+					ceui.is_system_ui = 1 OR
+					{$vs_group_sql}
+					(ceui.ui_id IN (
+							SELECT ui_id 
+							FROM ca_editor_uis_x_users 
+							WHERE 
+								user_id = ?
+						)
+					)
+				) 
+				AND (ceui.editor_type = ?)
+		", (int)$this->getPrimaryKey(), (int)$this->getPrimaryKey(), (int)$pn_table_num);
+		
+		$va_ui_list_by_type = array();
+		while($qr_uis->nextRow()) {
+			if (!($vn_type_id = $qr_uis->get('type_id'))) { $vn_type_id = '__all__'; }
+			$va_ui_list_by_type[$vn_type_id][$qr_uis->get('ui_id')][$qr_uis->get('locale_id')] = $qr_uis->get('name');
+		}
+		
+		return $va_ui_list_by_type;
+	}
+	# ----------------------------------------
+	/**
+	 *
+	 */
+	public function _getUIList($pn_table_num) {
+		if(!$this->getPrimaryKey()) { return false; }
+		$vs_group_sql = '';
+		if (is_array($va_groups = $this->getUserGroups()) && sizeof($va_groups)) {
+			$vs_group_sql = " (
+				(ceui.ui_id IN (
+						SELECT ui_id 
+						FROM ca_editor_uis_x_user_groups 
+						WHERE 
+							group_id IN (".join(',', array_keys($va_groups)).")
+					)
+				)
+			) OR ";
+		}
+		
+		$o_db = $this->getDb();
+		$qr_uis = $o_db->query("
+			SELECT *
+			FROM ca_editor_uis ceui
+			INNER JOIN ca_editor_ui_labels AS ceuil ON ceui.ui_id = ceuil.ui_id
+			WHERE
+				(
+					ceui.user_id = ? OR 
+					ceui.is_system_ui = 1 OR
+					{$vs_group_sql}
+					(ceui.ui_id IN (
+							SELECT ui_id 
+							FROM ca_editor_uis_x_users 
+							WHERE 
+								user_id = ?
+						)
+					)
+				) AND (ceui.editor_type = ?)
+		", (int)$this->getPrimaryKey(), (int)$this->getPrimaryKey(), (int)$pn_table_num);
+		$va_opts = array();
+		while($qr_uis->nextRow()) {
+			$va_opts[$qr_uis->get('ui_id')][$qr_uis->get('locale_id')] = $qr_uis->get('name');
+		}
+		
+		return caExtractValuesByUserLocale($va_opts);
+	}
+	# ----------------------------------------
+	/**
+	 *
+	 */
+	private function _editorPrefFormatTypeToTableNum($ps_pref_format_type) {
+		switch($ps_pref_format_type) {
+			case 'FT_OBJECT_EDITOR_UI':
+				$vn_table_num = 57;
+				break;
+			case 'FT_OBJECT_LOT_EDITOR_UI':
+				$vn_table_num = 51;
+				break;
+			case 'FT_ENTITY_EDITOR_UI':
+				$vn_table_num = 20;
+				break;
+			case 'FT_PLACE_EDITOR_UI':
+				$vn_table_num = 72;
+				break;
+			case 'FT_OCCURRENCE_EDITOR_UI':
+				$vn_table_num = 67;
+				break;
+			case 'FT_COLLECTION_EDITOR_UI':
+				$vn_table_num = 13;
+				break;
+			case 'FT_STORAGE_LOCATION_EDITOR_UI':
+				$vn_table_num = 89;
+				break;
+			case 'FT_OBJECT_REPRESENTATION_EDITOR_UI':
+				$vn_table_num = 56;
+				break;
+			case 'FT_REPRESENTATION_ANNOTATION_EDITOR_UI':
+				$vn_table_num = 82;
+				break;
+			case 'FT_SET_EDITOR_UI':
+				$vn_table_num = 103;
+				break;
+			case 'FT_SET_ITEM_EDITOR_UI':
+				$vn_table_num = 105;
+				break;
+			case 'FT_LIST_EDITOR_UI':
+				$vn_table_num = 36;
+				break;
+			case 'FT_LIST_ITEM_EDITOR_UI':
+				$vn_table_num = 33;
+				break;
+			case 'FT_LOAN_EDITOR_UI':
+				$vn_table_num = 133;
+				break;
+			case 'FT_MOVEMENT_EDITOR_UI':
+				$vn_table_num = 137;
+				break;
+			case 'FT_TOUR_EDITOR_UI':
+				$vn_table_num = 153;
+				break;
+			case 'FT_TOUR_STOP_EDITOR_UI':
+				$vn_table_num = 155;
+				break;
+			case 'FT_SEARCH_FORM_EDITOR_UI':
+				$vn_table_num = 121;
+				break;
+			case 'FT_BUNDLE_DISPLAY_EDITOR_UI':
+				$vn_table_num = 124;
+				break;
+			case 'FT_RELATIONSHIP_TYPE_EDITOR_UI':
+				$vn_table_num = 79;
+				break;
+			case 'FT_USER_INTERFACE_EDITOR_UI':
+				$vn_table_num = 101;
+				break;
+			case 'FT_USER_INTERFACE_SCREEN_EDITOR_UI':
+				$vn_table_num = 100;
+				break;
+			case 'FT_IMPORT_EXPORT_MAPPING_EDITOR_UI':
+				$vn_table_num = 128;
+				break;
+			case 'FT_IMPORT_EXPORT_MAPPING_GROUP_EDITOR_UI':
+				$vn_table_num = 130;
+				break;
+			default:
+				$vn_table_num = null;
+				break;
+		}
+		return $vn_table_num;
 	}
 	# ----------------------------------------
 /**
@@ -2073,6 +2353,10 @@ class ca_users extends BaseModel {
 	 * keys and values that can contain such information
 	 */
 	public function authenticate(&$ps_username, $ps_password="", $pa_options="") {
+		if($this->opo_auth_config->get("use_ldap")){
+			return $this->authenticateLDAP($ps_username,$ps_password);
+		}
+		
 		if ($this->load(array("user_name" => $ps_username))) {
 			if ($this->verify($ps_password) && $this->isActive()) {
 				return true;
@@ -2089,6 +2373,121 @@ class ca_users extends BaseModel {
 			}
 		}
 		return false;
+	}
+	
+	/**
+	 * Do LDAP authentification (creates user based on directory 
+	 * information and config preferences in authentication.conf)
+	 * @param string $ps_username username
+	 * @param string $ps_password password
+	 */
+	private function authenticateLDAP($ps_username="",$ps_password=""){
+		if(!function_exists("ldap_connect")){
+			die("PHP's LDAP module is required for LDAP authentication!");
+		}
+		
+		// ldap config
+		$vs_ldaphost = $this->opo_auth_config->get("ldap_host");
+		$vs_ldapport = $this->opo_auth_config->get("ldap_port");
+		$vs_base_dn = $this->opo_auth_config->get("ldap_base_dn");
+		$va_group_cn = $this->opo_auth_config->getList("ldap_group_cn");
+		$vs_user_ou = $this->opo_auth_config->get("ldap_user_ou");
+		
+		
+		$vo_ldap = ldap_connect($vs_ldaphost,$vs_ldapport) or die("could not connect to LDAP server");
+		ldap_set_option($vo_ldap, LDAP_OPT_PROTOCOL_VERSION, 3);
+
+		$vs_dn = "uid={$ps_username},{$vs_user_ou},{$vs_base_dn}";
+			
+		if($vo_ldap){
+			
+			// log in
+			
+			$vo_bind = @ldap_bind($vo_ldap, $vs_dn, $ps_password);
+			if(!$vo_bind) { // wrong credentials
+				//print ldap_error($vo_ldap);
+				ldap_unbind($vo_ldap);
+				return false;
+			}
+		
+			if(is_array($va_group_cn) && sizeof($va_group_cn)>0){
+				if(!$this->_LDAPmemberInOneGroup($ps_username, $va_group_cn, $vo_ldap, $vs_base_dn)){
+					ldap_unbind($vo_ldap);
+					return false;
+				}
+			}
+			
+			if(!$this->load(array("user_name" => $ps_username))){ // first user login, authentication via LDAP successful
+				
+				/* query directory service for additional info on user */
+				$vo_results = ldap_search($vo_ldap, $vs_dn, "uid={$ps_username}");
+				if($vo_results){
+					// default user config
+					$va_roles = $this->opo_auth_config->get("ldap_users_default_roles");
+					$va_groups = $this->opo_auth_config->get("ldap_users_default_groups");
+					$vn_active = $this->opo_auth_config->get("ldap_users_auto_active");
+					
+					$vo_entry = ldap_first_entry($vo_ldap, $vo_results);
+					if(!$vo_entry) return false;
+					
+					$va_attrs = ldap_get_attributes($vo_ldap, $vo_entry);
+					$vs_email = $va_attrs["mail"][0];
+					$vs_fname = $va_attrs["givenName"][0];
+					$vs_lname = $va_attrs["sn"][0];
+					
+					$this->set("user_name",$ps_username);
+					$this->set("email",$vs_email);
+					$this->set("password",$ps_password);
+					$this->set("fname",$vs_fname);
+					$this->set("lname",$vs_lname);
+					$this->set("active",$vn_active);
+
+					$vn_mode = $this->getMode();
+					$this->setMode(ACCESS_WRITE);
+
+					$this->insert();
+					if(!$this->getPrimaryKey()){
+						// log record creation failed
+						return false;
+					} 
+
+					$this->addRoles($va_roles);
+					$this->addToGroups($va_groups);
+
+					$this->setMode($vn_mode);
+				} else {
+					// user not found, probably some sort of search restriction
+					return false;
+				}				
+			}
+			
+			ldap_unbind($vo_ldap);
+			return true;
+		} else {
+			// log couldn't connect to server
+			return false;
+		}
+	}
+	# ----------------------------------------
+	/**
+	 * LDAP helper
+	 * Checks if user is member in at least one of the groups in the given group list
+	 */
+	private function _LDAPmemberInOneGroup($ps_user,$pa_groups,$po_ldap,$ps_base_dn){
+		$vb_return = false;
+		if(is_array($pa_groups)){
+			foreach($pa_groups as $vs_group_cn){
+				$vs_filter = "(cn=$vs_group_cn)";
+				$vo_result = ldap_search($po_ldap, $ps_base_dn, $vs_filter,array("memberuid"));
+				$va_entries = ldap_get_entries($po_ldap, $vo_result);
+				if($va_members = $va_entries[0]["memberuid"]){
+					if(in_array($ps_user, $va_members)){
+						$vb_return = true;
+					}
+				}
+			}
+		}
+		return $vb_return;
 	}
 	# ----------------------------------------
 	/**
@@ -2250,11 +2649,14 @@ class ca_users extends BaseModel {
 	 * Returns true if user can do action, false otherwise.
 	 */
 	public function canDoAction($ps_action) {
-		if(!$this->getPrimaryKey()) return false; 						// "empty" ca_users object -> no groups or roles associated -> can't do action
-		if(!ca_user_roles::isValidAction($ps_action)) { return false; }	// return false if action is not valid	
+		$vs_cache_key = $ps_action."/".$this->getPrimaryKey();
+		if (isset(ca_users::$s_user_action_access_cache[$vs_cache_key])) { return ca_users::$s_user_action_access_cache[$vs_cache_key]; }
+
+		if(!$this->getPrimaryKey()) { return ca_users::$s_user_action_access_cache[$vs_cache_key] = false; } 						// "empty" ca_users object -> no groups or roles associated -> can't do action
+		if(!ca_user_roles::isValidAction($ps_action)) { return ca_users::$s_user_action_access_cache[$vs_cache_key] = false; }	// return false if action is not valid	
 		
 		// is user administrator?
-		if ($this->getPrimaryKey() == $this->_CONFIG->get('administrator_user_id')) { return true; }	// access restrictions don't apply to user with user_id = admin id
+		if ($this->getPrimaryKey() == $this->_CONFIG->get('administrator_user_id')) { return ca_users::$s_user_action_access_cache[$vs_cache_key] = true; }	// access restrictions don't apply to user with user_id = admin id
 		
 		// get user roles
 		$va_roles = $this->getUserRoles();
@@ -2263,19 +2665,119 @@ class ca_users extends BaseModel {
 		}
 		
 		$va_actions = ca_user_roles::getActionsForRoleIDs(array_keys($va_roles));
-		if (in_array('is_administrator', $va_actions)) { return true; }		// access restrictions don't apply to users with is_administrator role
-		return in_array($ps_action, $va_actions);
+		if (in_array('is_administrator', $va_actions)) { return ca_users::$s_user_action_access_cache[$vs_cache_key] = true; }		// access restrictions don't apply to users with is_administrator role
+		return ca_users::$s_user_action_access_cache[$vs_cache_key] = in_array($ps_action, $va_actions);
 	}
 	# ----------------------------------------
 	/**
 	 * Returns the type of access the user has to the specified bundle.
 	 * Types of access are:
-	 *		- EDIT (implies ability to view and change bundle content)
-	 *		- VIEW (implies ability to view bundle content only)
-	 *		- NONE (indicates that the user has no access to bundle)
+	 *		__CA_BUNDLE_ACCESS_EDIT__ (implies ability to view and change bundle content)
+	 *		__CA_BUNDLE_ACCESS_READONLY__ (implies ability to view bundle content only)
+	 *		__CA_BUNDLE_ACCESS_NONE__ (indicates that the user has no access to bundle)
 	 */
-	public function getBundleAccessLevel($ps_action) {
-		// TODO
+	public function getBundleAccessLevel($ps_table_name, $ps_bundle_name) {
+		$vs_cache_key = $ps_table_name.'/'.$ps_bundle_name."/".$this->getPrimaryKey();
+		if (isset(ca_users::$s_user_bundle_access_cache[$vs_cache_key])) { return ca_users::$s_user_bundle_access_cache[$vs_cache_key]; }
+		
+		$va_roles = array_merge($this->getUserRoles(), $this->getGroupRoles());
+		
+		$vn_access = -1;
+		foreach($va_roles as $vn_role_id => $va_role_info) {
+			$va_vars = caUnserializeForDatabase($va_role_info['vars']);
+			
+			if (is_array($va_vars['bundle_access_settings'])) {
+				if (isset($va_vars['bundle_access_settings'][$ps_table_name.'.'.$ps_bundle_name]) && ((int)$va_vars['bundle_access_settings'][$ps_table_name.'.'.$ps_bundle_name] > $vn_access)) {
+					$vn_access = (int)$va_vars['bundle_access_settings'][$ps_table_name.'.'.$ps_bundle_name];
+					
+					if ($vn_access == __CA_BUNDLE_ACCESS_EDIT__) { break; }	// already at max
+				} else {
+					if (isset($va_vars['bundle_access_settings'][$ps_table_name.'.ca_attribute_'.$ps_bundle_name]) && ((int)$va_vars['bundle_access_settings'][$ps_table_name.'.ca_attribute_'.$ps_bundle_name] > $vn_access)) {
+						$vn_access = (int)$va_vars['bundle_access_settings'][$ps_table_name.'.ca_attribute_'.$ps_bundle_name];
+						
+						if ($vn_access == __CA_BUNDLE_ACCESS_EDIT__) { break; }	// already at max
+					}
+				}
+			}
+		}
+		
+		if ($vn_access < 0) {
+			$vn_access = (int)$this->getAppConfig()->get('default_bundle_access_level');
+		}
+		ca_users::$s_user_bundle_access_cache[$vs_cache_key] = $vn_access;
+		return $vn_access;
+	}
+	# ----------------------------------------
+	/**
+	 * Returns the type of access the user has to the specified type.
+	 * Types of access are:
+	 *		__CA_BUNDLE_ACCESS_EDIT__ (implies ability to view and change bundle content)
+	 *		__CA_BUNDLE_ACCESS_READONLY__ (implies ability to view bundle content only)
+	 *		__CA_BUNDLE_ACCESS_NONE__ (indicates that the user has no access to bundle)
+	 */
+	public function getTypeAccessLevel($ps_table_name, $pm_type_code_or_id) {
+		$vs_cache_key = $ps_table_name.'/'.$pm_type_code_or_id."/".$this->getPrimaryKey();
+		if (isset(ca_users::$s_user_type_access_cache[$vs_cache_key])) { return ca_users::$s_user_type_access_cache[$vs_cache_key]; }
+		$va_roles = array_merge($this->getUserRoles(), $this->getGroupRoles());
+		
+		if (is_numeric($pm_type_code_or_id)) { 
+			$vn_type_id = (int)$pm_type_code_or_id; 
+		} else {
+			$t_list = new ca_lists();
+			$t_instance = $this->getAppDatamodel()->getInstanceByTableName($ps_table_name, true);
+			$vn_type_id = (int)$t_list->getItemIDFromList($t_instance->getTypeListCode(), $pm_type_code_or_id);
+		}
+		$vn_access = -1;
+		foreach($va_roles as $vn_role_id => $va_role_info) {
+			$va_vars = caUnserializeForDatabase($va_role_info['vars']);
+			
+			if (is_array($va_vars['type_access_settings'])) {
+				if (isset($va_vars['type_access_settings'][$ps_table_name.'.'.$vn_type_id]) && ((int)$va_vars['type_access_settings'][$ps_table_name.'.'.$vn_type_id] > $vn_access)) {
+					$vn_access = (int)$va_vars['type_access_settings'][$ps_table_name.'.'.$vn_type_id];
+					
+					if ($vn_access == __CA_BUNDLE_ACCESS_EDIT__) { break; }	// already at max
+				}
+			}
+		}
+		
+		if ($vn_access < 0) {
+			$vn_access = (int)$this->getAppConfig()->get('default_type_access_level');
+		}
+		
+		ca_users::$s_user_type_access_cache[$ps_table_name.'/'.$vn_type_id."/".$this->getPrimaryKey()] = ca_users::$s_user_type_access_cache[$vs_cache_key] = $vn_access;
+		return $vn_access;
+	}
+	# ----------------------------------------
+	/**
+	 * Returns list of type_ids for specified table for which user has at least the specified access
+	 * Types of access are:
+	 *		__CA_BUNDLE_ACCESS_EDIT__ (implies ability to view and change bundle content)
+	 *		__CA_BUNDLE_ACCESS_READONLY__ (implies ability to view bundle content only)
+	 *		__CA_BUNDLE_ACCESS_NONE__ (indicates that the user has no access to bundle)
+	 */
+	public function getTypesWithAccess($ps_table_name, $pn_access) {
+		$vs_cache_key = $ps_table_name."/".(int)$pn_access."/".$this->getPrimaryKey();
+		if (isset(ca_users::$s_user_type_with_access_cache[$vs_cache_key])) { return ca_users::$s_user_type_with_access_cache[$vs_cache_key]; }
+		$va_roles = array_merge($this->getUserRoles(), $this->getGroupRoles());
+		
+		$vn_default_access = (int)$this->getAppConfig()->get('default_type_access_level');
+		
+		$va_type_ids = array();
+		foreach($va_roles as $vn_role_id => $va_role_info) {
+			$va_vars = caUnserializeForDatabase($va_role_info['vars']);
+			
+			if (is_array($va_vars['type_access_settings'])) {
+				foreach($va_vars['type_access_settings'] as $vs_key => $vn_access) {
+					list($vs_table, $vn_type_id) = explode(".", $vs_key);
+					
+					if ($vs_table != $ps_table_name) { continue; }
+					if($vn_access >= $pn_access) {
+						$va_type_ids[] = $vn_type_id;
+					}
+				}
+			}
+		}
+		return ca_users::$s_user_type_with_access_cache[$vs_cache_key] = $va_type_ids;
 	}
 	# ----------------------------------------
 	/**
@@ -2284,11 +2786,12 @@ class ca_users extends BaseModel {
 	 * @param array $pa_module_path
 	 * @param string $ps_controller
 	 * @param string $ps_action
+	 * @param array $pa_fake_parameters optional array of fake parameters to "simulate" a future request
 	 * @return bool
 	 */
-	public function canAccess($pa_module_path,$ps_controller,$ps_action){
+	public function canAccess($pa_module_path,$ps_controller,$ps_action,$pa_fake_parameters=array()){
 		$vo_acr = AccessRestrictions::load();
-		return $vo_acr->userCanAccess($this->getUserID(), $pa_module_path, $ps_controller, $ps_action);
+		return $vo_acr->userCanAccess($this->getUserID(), $pa_module_path, $ps_controller, $ps_action, $pa_fake_parameters);
 	}
 	# ----------------------------------------
 }

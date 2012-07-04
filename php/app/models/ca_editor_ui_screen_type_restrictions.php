@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2010 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -74,6 +74,13 @@ BaseModel::$s_ca_models_definitions['ca_editor_ui_screen_type_restrictions'] = a
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => 'Screen id', 'DESCRIPTION' => 'Identifier for Screen'
+		),
+		'include_subtypes' => array(
+				'FIELD_TYPE' => FT_BIT, 'DISPLAY_TYPE' => DT_CHECKBOXES, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '0',
+				'LABEL' => _t('Include subtypes in restriction?'), 'DESCRIPTION' => _t('???')
 		),
 		'settings' => array(
 				'FIELD_TYPE' => FT_VARS, 'DISPLAY_TYPE' => DT_OMIT, 

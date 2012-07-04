@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -40,9 +40,11 @@
 	$va_lookup_urls 	= caJSONLookupServiceUrl($this->request, $t_subject->tableName());
 	
 	$vb_strict_type_hierarchy = (bool)$this->request->config->get($t_subject->tableName().'_enforce_strict_type_hierarchy');
-	$vs_type_selector = trim($t_subject->getTypeListAsHTMLFormElement("{$ps_id_prefix}type_id", array('id' => "{$ps_id_prefix}typeList"), array('childrenOfCurrentTypeOnly' => $vb_strict_type_hierarchy, 'includeSelf' => !$vb_strict_type_hierarchy, 'directChildrenOnly' => $vb_strict_type_hierarchy)));
+	$vs_type_selector 	= trim($t_subject->getTypeListAsHTMLFormElement("{$ps_id_prefix}type_id", array('id' => "{$ps_id_prefix}typeList"), array('childrenOfCurrentTypeOnly' => $vb_strict_type_hierarchy, 'includeSelf' => !$vb_strict_type_hierarchy, 'directChildrenOnly' => $vb_strict_type_hierarchy)));
 	
 	$pa_bundle_settings = $this->getVar('settings');
+	$vb_read_only		=	((isset($pa_bundle_settings['readonly']) && $pa_bundle_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($t_subject->tableName(), 'hierarchy_location') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 		
 		
 	$va_errors = array();
@@ -145,7 +147,7 @@
 					if($vn_id === '') {
 						$va_path[] = "<a href='#'>"._t('New %1', $t_subject->getTypeName())."</a>";
 					} else {
-						$vs_name = htmlspecialchars($va_item['name'], ENT_QUOTES, 'UTF-8');
+						$vs_name = $va_item['name'];
 						if ($va_item[$t_subject->primaryKey()] && ($va_item[$t_subject->primaryKey()] != $pn_id)) {
 							$va_path[] = '<a href="'.caEditorUrl($this->request, $t_subject->tableName(), $va_item[$t_subject->primaryKey()]).'">'.$vs_name.'</a>';
 						} else {
@@ -168,16 +170,16 @@
 		<div id="<?php print $ps_id_prefix; ?>HierarchyBrowserContainer" class="editorHierarchyBrowserContainer">		
 			<div  id="<?php print $ps_id_prefix; ?>HierarchyBrowserTabs">
 				<ul>
-					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-explore" onclick='_init<?php print $ps_id_prefix; ?>ExploreHierarchyBrowser();'><span>Explore</span></a></li>
+					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-explore" onclick='_init<?php print $ps_id_prefix; ?>ExploreHierarchyBrowser();'><span><?php print _t('Explore'); ?></span></a></li>
 <?php
-	if (!$vb_strict_type_hierarchy) {
+	if (!$vb_strict_type_hierarchy && !$vb_read_only) {
 ?>
-					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-move" onclick='_init<?php print $ps_id_prefix; ?>MoveHierarchyBrowser();'><span>Move</span></a></li>
+					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-move" onclick='_init<?php print $ps_id_prefix; ?>MoveHierarchyBrowser();'><span><?php print _t('Move'); ?></span></a></li>
 <?php
 	}
-	if (($this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
+	if ((!$vb_read_only && $this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
 ?>
-					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-add" onclick='_init<?php print $ps_id_prefix; ?>AddHierarchyBrowser();'><span>Add</span></a></li>
+					<li><a href="#<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-add" onclick='_init<?php print $ps_id_prefix; ?>AddHierarchyBrowser();'><span><?php print _t('Add'); ?></span></a></li>
 <?php
 	}
 ?>
@@ -196,7 +198,7 @@
 					</div><!-- end hierbrowser -->
 				</div>
 <?php
-	if (!$vb_strict_type_hierarchy) {
+	if (!$vb_strict_type_hierarchy && !$vb_read_only) {
 ?>
 				<div id="<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-move" class="hierarchyBrowseTab">
 					<div class="hierarchyBrowserFind">
@@ -213,7 +215,7 @@
 				</div>
 <?php
 	}
-	if (($this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
+	if ((!$vb_read_only && $this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
 ?>
 			<div id="<?php print $ps_id_prefix; ?>HierarchyBrowserTabs-add"  class="hierarchyBrowseTab">
 				<div class="hierarchyBrowserMessageContainer">
@@ -252,7 +254,7 @@
 ?>
 		</div>
 	</div>
-	<input type='hidden' name='<?php print $ps_id_prefix; ?>_new_parent_id' id='<?php print $ps_id_prefix; ?>_new_parent_id' value=''/>
+	<input type='hidden' name='<?php print $ps_id_prefix; ?>_new_parent_id' id='<?php print $ps_id_prefix; ?>_new_parent_id' value='<?php print $pn_parent_id; ?>'/>
 
 <script type="text/javascript">
 	jQuery(document).ready(function() {	
@@ -328,7 +330,7 @@
 				
 				dontAllowEditForFirstLevel: <?php print (in_array($t_subject->tableName(), array('ca_places', 'ca_storage_locations', 'ca_list_items')) ? 'true' : 'false'); ?>,
 				
-				readOnly: false,
+				readOnly: <?php print $vb_read_only ? 1 : 0; ?>,
 				
 				editUrl: '<?php print caEditorUrl($this->request, $t_subject->tableName()); ?>',
 				editButtonIcon: '<img src="<?php print $this->request->getThemeUrlPath(); ?>/graphics/buttons/arrow_grey_right.gif" border="0" title="Edit">',
@@ -341,7 +343,7 @@
 	}
 
 <?php
-	if (!$vb_strict_type_hierarchy) {
+	if (!$vb_strict_type_hierarchy && !$vb_read_only) {
 ?>
 	// Set up "move" hierarchy browser
 	var o<?php print $ps_id_prefix; ?>MoveHierarchyBrowser = null;
@@ -352,7 +354,7 @@
 				levelDataUrl: '<?php print $va_lookup_urls['levelList']; ?>',
 				initDataUrl: '<?php print $va_lookup_urls['ancestorList']; ?>',
 				
-				readOnly: false,
+				readOnly: <?php print $vb_read_only ? 1 : 0; ?>,
 				
 				initItemID: '<?php print $pn_id; ?>',
 				indicatorUrl: '<?php print $this->request->getThemeUrlPath(); ?>/graphics/icons/indicator.gif',
@@ -380,7 +382,7 @@
 <?php
 	}
 	
-	if (($this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
+	if ((!$vb_read_only && $this->request->user->canDoAction('can_create_'.$vs_priv_table)) && (!$vb_strict_type_hierarchy || ($vb_strict_type_hierarchy && $vs_type_selector))) {
 ?>
 	// Set up "add" hierarchy browser
 	var o<?php print $ps_id_prefix; ?>AddHierarchyBrowser = null;
@@ -391,7 +393,7 @@
 				levelDataUrl: '<?php print $va_lookup_urls['levelList']; ?>',
 				initDataUrl: '<?php print $va_lookup_urls['ancestorList']; ?>',
 				
-				readOnly: true,
+				readOnly: <?php print $vb_read_only ? 1 : 0; ?>,
 				
 				initItemID: '<?php print $pn_id; ?>',
 				indicatorUrl: '<?php print $this->request->getThemeUrlPath(); ?>/graphics/icons/indicator.gif',

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -29,10 +29,15 @@
 	JavascriptLoadManager::register('sortableUI');
 
 	$vs_id_prefix 		= $this->getVar('placement_code').$this->getVar('id_prefix');
+	$t_instance 		= $this->getVar('t_instance');
 	$t_item 			= $this->getVar('t_item');			// object representation
 	$t_item_rel 		= $this->getVar('t_item_rel');
 	$t_subject 			= $this->getVar('t_subject');		// object
 	$vs_add_label 		= $this->getVar('add_label');
+	$va_settings 		= $this->getVar('settings');
+
+	$vb_read_only		=	(isset($va_settings['readonly']) && $va_settings['readonly']);
+	
 	
 	$vb_allow_fetching_from_urls = $this->request->getAppConfig()->get('allow_fetching_of_media_from_remote_urls');
 	
@@ -48,7 +53,7 @@
 			$vn_num_multifiles = $va_rep['num_multifiles'];
 			$vs_extracted_metadata = caFormatMediaMetadata(caUnserializeForDatabase($va_rep['media_metadata']));
 			$vs_md5 = isset($va_rep['info']['original']['MD5']) ? _t('MD5 signature').': '.$va_rep['info']['original']['MD5'] : '';
-			
+
 			$va_inital_values[$va_rep['representation_id']] = array(
 				'status' => $va_rep['status'], 
 				'access' => $va_rep['access'], 
@@ -102,9 +107,9 @@
 					<?php print $t_item->htmlFormElement('access', null, array('classname' => 'objectRepresentationStatus', 'id' => "{fieldNamePrefix}access_{n}", 'name' => "{fieldNamePrefix}access_{n}", "value" => "", 'no_tooltips' => false, 'tooltip_namespace' => 'bundle_ca_object_representations')); ?></td>
 					<td colspan="1" align="right" valign="bottom" width="300px" style="padding: 5px 20px 0px 0px;">
 						<div style="width:300px; overflow:hidden; padding:0px; margin:0px;"><a title="{filename}" style="font-weight:bold; color:#000000;"><em>{filename}</em></a></div>{type} {dimensions} {num_multifiles}
-						<div style="width:110px; ">
-								<div style="margin-top:0px; float:left; text-align:right;"><?php print "<div style='margin:2px 2px 0px 0px; float:left;'>".urldecode(caNavLink($this->request, caNavIcon($this->request, __CA_NAV_BUTTON_EDIT__).'</div>Edit Metadata', '', 'editor/object_representations', 'ObjectRepresentationEditor', 'Edit', array('representation_id' => "{n}"), array('id' => "{fieldNamePrefix}edit_{n}"))); ?></div>
-						</div>
+<?php 
+	if (!$vb_read_only) {
+?>
 						<div style="width:110px; ">
 								<a href="#" onclick="jQuery('#{fieldNamePrefix}media_{n}').toggle(200); jQuery('#{fieldNamePrefix}media_show_update_{n}').hide(); return false;" id="{fieldNamePrefix}media_show_update_{n}"><div style="margin-top:2px; width:16px; float:left;"><?php print "<img src='".$this->request->getThemeUrlPath()."/graphics/icons/updatemedia.png' border='0' height='16px' width='16px'/>";?></div><?php print _t('Update media'); ?></a>
 						</div>
@@ -112,16 +117,16 @@
 							<div id="{fieldNamePrefix}media_upload_control_{n}">
 								<?php print $t_item->htmlFormElement('media', null, array('name' => "{fieldNamePrefix}media_{n}", 'id' => "{fieldNamePrefix}media_{n}", "value" => "", 'no_tooltips' => false, 'tooltip_namespace' => 'bundle_ca_object_representations')); ?>
 <?php
-	if ($vb_allow_fetching_from_urls) {
+		if ($vb_allow_fetching_from_urls) {
 ?>
 							
 								<a href='#' onclick='jQuery("#{fieldNamePrefix}media_url_control_{n}").slideDown(200); jQuery("#{fieldNamePrefix}media_upload_control_{n}").slideUp(200); return false'><?php print _t('or fetch from a URL'); ?></a>
 <?php
-	}
+		}
 ?>
 							</div>
 <?php
-	if ($vb_allow_fetching_from_urls) {
+		if ($vb_allow_fetching_from_urls) {
 ?>
 							<div id="{fieldNamePrefix}media_url_control_{n}" style="display: none;">
 								<?php print _t('Fetch from URL'); ?>: <textentry cols="25" rows="3" name="{fieldNamePrefix}media_url_{n}" id="{fieldNamePrefix}media_url_{n}"></textentry>
@@ -129,16 +134,26 @@
 								<a href='#' onclick='jQuery("#{fieldNamePrefix}media_url_control_{n}").slideUp(200); jQuery("#{fieldNamePrefix}media_upload_control_{n}").slideDown(200); return false'><?php print _t('or upload a file'); ?></a>
 							</div>
 <?php
-	}
+		}
 ?>
 						</div>
+<?php
+	}
+?>
 					</td>
 					<td rowspan="1" class="objectRepresentationListItemImage" >
 						<div class="objectRepresentationListItemImageThumb"><a href="#" onclick="caMediaPanel.showPanel('<?php print urldecode(caNavUrl($this->request, 'editor/objects', 'ObjectEditor', 'GetRepresentationInfo', array('object_id' => $t_subject->getPrimaryKey(), 'representation_id' => '{n}'))); ?>'); return false;">{icon}</a></div>
 						<div style="float:right; margin:5px 0px 0px 125px; position:absolute;">
-							<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
-							<br/>
-							<?php print urldecode(caNavButton($this->request, __CA_NAV_BUTTON_DOWNLOAD__, 'Download', 'editor/objects', 'ObjectEditor', 'DownloadRepresentation', array('version' => 'original', 'representation_id' => "{n}", 'object_id' => $t_subject->getPrimaryKey(), 'download' => 1), array('id' => "{fieldNamePrefix}download_{n}"), array('no_background' => true, 'dont_show_content' => true))); ?>
+<?php 
+	if (!$vb_read_only) {
+?>
+							<div style="margin: 0 0 10px 0;"><a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a></div>
+<?php
+	}
+?>
+							<div style="margin: 10px 0 0 0;"><?php print urldecode(caNavButton($this->request, __CA_NAV_BUTTON_DOWNLOAD__, 'Download', 'editor/objects', 'ObjectEditor', 'DownloadRepresentation', array('version' => 'original', 'representation_id' => "{n}", 'object_id' => $t_subject->getPrimaryKey(), 'download' => 1), array('id' => "{fieldNamePrefix}download_{n}"), array('no_background' => true, 'dont_show_content' => true))); ?></div>
+						
+							<div style="margin: 10px 0 0 0;"><?php print urldecode(caNavLink($this->request, caNavIcon($this->request, __CA_NAV_BUTTON_EDIT__), '', 'editor/object_representations', 'ObjectRepresentationEditor', 'Edit', array('representation_id' => "{n}"), array('id' => "{fieldNamePrefix}edit_{n}"))); ?></div>
 						</div>
 					</td>
 
@@ -176,7 +191,13 @@
 		<div class="caItemList">
 		
 		</div>
+<?php 
+	if (!$vb_read_only) {
+?>
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label ? $vs_add_label : _t("Add representation")." &rsaquo;"; ?></a></div>
+<?php
+	}
+?>
 	</div>
 </div>
 
@@ -202,7 +223,8 @@
 		hideOnNewIDList: ['<?php print $vs_id_prefix; ?>_media_show_update_', '<?php print $vs_id_prefix; ?>_edit_','<?php print $vs_id_prefix; ?>_download_', '<?php print $vs_id_prefix; ?>_media_metadata_container_'],
 		enableOnNewIDList: ['<?php print $vs_id_prefix; ?>_type_id_'],
 		showEmptyFormsOnLoad: 1,
-		isSortable: true,
+		readonly: <?php print $vb_read_only ? "true" : "false"; ?>,
+		isSortable: <?php print !$vb_read_only ? "true" : "false"; ?>,
 		listSortOrderID: '<?php print $vs_id_prefix; ?>_ObjectRepresentationBundleList',
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>
 		

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -142,6 +142,7 @@
 							$t_table->setMode(ACCESS_WRITE);
 							if ($vs_table == 'ca_object_representations') {
 								$t_table->set('md5', $t_table->getMediaInfo('ca_object_representations.media', 'original', 'MD5'));
+								$t_table->set('mimetype', $t_table->getMediaInfo('ca_object_representations.media', 'original', 'MIMETYPE'));
 								
 								$va_media_info = $t_table->getMediaInfo('ca_object_representations.media');
 								$t_table->set('original_filename', $va_media_info['ORIGINAL_FILENAME']);

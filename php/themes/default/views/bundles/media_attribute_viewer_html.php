@@ -35,11 +35,7 @@
 	
 	// Get filename of originally uploaded file
 	//$va_media_info 			= $t_rep->getMediaInfo('media');
-	//$vs_original_filename 	= $va_media_info['ORIGINAL_FILENAME'];
-	
-
-		
-			
+	//$vs_original_filename 	= $va_media_info['ORIGINAL_FILENAME'];			
 ?>
 	<!-- Controls -->
 	<div class="caMediaOverlayControls">

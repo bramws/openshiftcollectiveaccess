@@ -155,7 +155,7 @@
 		deleteButtonClassName: 'caDeleteItemButton',
 		showEmptyFormsOnLoad: 1,
 		showOnNewIDList: [],
-		hideOnNewIDList: ['<?php print $vs_id_prefix; ?>_gotoButton_'],
+		hideOnNewIDList: ['<?php print $vs_id_prefix; ?>_gotoButton_', '<?php print $vs_id_prefix; ?>_edit_'],
 		addMode: 'prepend',
 		incrementLocalesForNewBundles: false,
 		defaultLocaleID: <?php print ca_locales::getDefaultCataloguingLocaleID(); ?>

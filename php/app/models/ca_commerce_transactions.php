@@ -51,11 +51,11 @@ BaseModel::$s_ca_models_definitions['ca_commerce_transactions'] = array(
 		),
 		'short_description' => array(
 				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
-				'DISPLAY_WIDTH' => 1024, 'DISPLAY_HEIGHT' => 2,
+				'DISPLAY_WIDTH' => 80, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
-				'LABEL' => _t('Short description'), 'DESCRIPTION' => _t('Short description of transaction'),
-				'BOUNDS_LENGTH' => array(1,255)
+				'LABEL' => _t('Conversation tag'), 'DESCRIPTION' => _t('Short description of subject of conversation'),
+				'BOUNDS_LENGTH' => array(0,1024)
 		),
 		'user_id' => array(
 				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_OMIT,
@@ -66,13 +66,28 @@ BaseModel::$s_ca_models_definitions['ca_commerce_transactions'] = array(
 				'DEFAULT' => '',
 				'LABEL' => _t('Customer'), 'DESCRIPTION' => _t('Customer initiating transaction')
 		),
+		'set_id' => array(
+				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_HIDDEN,
+				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => true, 
+				'DEFAULT' => '',
+				'LABEL' => 'Set id', 'DESCRIPTION' => 'Identifier for set attached to message'
+		),
 		'notes' => array(
 				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
 				'DISPLAY_WIDTH' => 80, 'DISPLAY_HEIGHT' => 5,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Notes'), 'DESCRIPTION' => _t('Notes pertaining to the bookmark and/or bookmarked item.'),
-				'BOUNDS_LENGTH' => array(1,255)
+				'BOUNDS_LENGTH' => array(0,65535)
+		),
+		'deleted' => array(
+				'FIELD_TYPE' => FT_BIT, 'DISPLAY_TYPE' => DT_OMIT, 
+				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => 0,
+				'LABEL' => _t('Is deleted?'), 'DESCRIPTION' => _t('Indicates if the set is deleted or not.'),
+				'BOUNDS_VALUE' => array(0,1)
 		),
 		'created_on' => array(
 				'FIELD_TYPE' => FT_TIMESTAMP, 'DISPLAY_TYPE' => DT_FIELD, 'UPDATE_ON_UPDATE' => true,
@@ -169,5 +184,77 @@ class ca_commerce_transactions extends BaseModel {
 		parent::__construct($pn_id);
 	}
 	# ----------------------------------------
+	/**
+	 *
+	 */
+	 public function sendMessage($pn_source, $pn_user_id, $ps_subject, $ps_message, $pa_options=null) {
+	 	if (!($vn_transaction_id = $this->getPrimaryKey())) { return null; }
+	 	
+	 	return ca_commerce_communications::sendMessage($vn_transaction_id, $pn_source, $pn_user_id, $ps_subject, $ps_message, $pa_options);
+	 }
+	 # ----------------------------------------
+	/**
+	 *
+	 */
+	 public function sendUserMessage($ps_subject, $ps_message, $pn_user_id, $pa_options=null) {
+	 	return $this->sendMessage(__CA_COMMERCE_COMMUNICATION_SOURCE_USER__, $pn_user_id, $ps_subject, $ps_message, $pa_options);
+	 }
+	 # ----------------------------------------
+	/**
+	 *
+	 */
+	 public function sendInstitutionMessage($ps_subject, $ps_message, $pn_user_id, $pa_options=null) {
+	 	return $this->sendMessage(__CA_COMMERCE_COMMUNICATION_SOURCE_INSTITUTION__, $pn_user_id, $ps_subject, $ps_message, $pa_options);
+	 }
+	 # ----------------------------------------
+	 /**
+	 * Get all messages associated with the current transaction. Messages are returned sorted by date/time, with the earliest message first.
+	 * 
+	 * @param array $pa_options
+	 */
+	 public function getMessages($pa_options=null) {
+	 	$o_db = $this->getDb();
+	 	if (!($vn_transaction_id = $this->getPrimaryKey())) { return null; }
+	 	
+	 	$qr_res = $o_db->query("
+	 		SELECT comm.*, tra.short_description, tra.transaction_id, tra.created_on transaction_created_on, tra.set_id
+	 		FROM ca_commerce_communications comm
+	 		INNER JOIN ca_commerce_transactions AS tra ON tra.transaction_id = comm.transaction_id
+	 		WHERE
+	 			tra.transaction_id = ?
+	 		ORDER BY
+	 			comm.created_on
+	 			
+	 	", (int)$vn_transaction_id);
+	 	
+	 	$va_messages = array();
+	 	
+	 	while($qr_res->nextRow()) {
+	 		$va_messages[] = $qr_res->getRow();
+	 	}
+	 	
+	 	return $va_messages;
+	 }
+	 # ----------------------------------------
+	/**
+	 *
+	 */
+	 public function haveAccessToTransaction($pn_user_id, $pn_transaction_id=null) {
+	 	$t_user = new ca_users($pn_user_id);
+	 	if ($t_user->canDoAction('can_manage_clients')) { return true; }
+	 	if ($pn_transaction_id) {
+	 		$t_trans = new ca_commerce_transactions($pn_transaction_id);
+	 		if (!$t_trans->getPrimaryKey()) { return false; }
+	 	} else {
+	 		$t_trans = $this;
+	 	}
+	 	if ($t_trans->getPrimaryKey()) {
+	 		if ($t_trans->get('user_id') == $pn_user_id) {
+	 			return true;
+	 		}
+	 	}
+	 	return false;
+	 }
+	 # ----------------------------------------
 }
 ?>

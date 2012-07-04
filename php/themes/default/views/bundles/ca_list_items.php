@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -29,13 +29,18 @@
  	JavascriptLoadManager::register('hierBrowser');
  
 	$vs_id_prefix 		= $this->getVar('placement_code').$this->getVar('id_prefix');
+	$t_instance 		= $this->getVar('t_instance');
 	$t_item 			= $this->getVar('t_item');				// list item
 	$t_item_rel 		= $this->getVar('t_item_rel');
 	$va_settings 		= $this->getVar('settings');
 	$vs_add_label 		= $this->getVar('add_label');
 	$va_rel_types		= $this->getVar('relationship_types');
 	
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($t_instance->tableName(), 'ca_list_items') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 	$va_initial_values	= $this->getVar('initialValues');
+	
+	$vn_browse_last_id = (int)$this->request->session->getVar('ca_list_items_browse_last_id');
 
 	// params to pass during occurrence lookup
 	$va_lookup_params = (isset($va_settings['restrict_to_type']) && $va_settings['restrict_to_type']) ? array('type' => $va_settings['restrict_to_type'], 'noSubtypes' => (int)$va_settings['dont_include_subtypes_in_type_restriction']) : array();
@@ -52,9 +57,13 @@
 			({{relationship_typename}})
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_type_id{n}" id="<?php print $vs_id_prefix; ?>_type_id{n}" value="{type_id}"/>
 			<input type="hidden" name="<?php print $vs_id_prefix; ?>_id{n}" id="<?php print $vs_id_prefix; ?>_id{n}" value="{id}"/>
-			
+<?php
+	if (!$vb_read_only) {
+?>				
 			<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
-			
+<?php
+	}
+?>			
 			<div style="display: none;" class="itemName">{label}</div>
 			<div style="display: none;" class="itemIdno">{idno_sort}</div>
 		</div>
@@ -110,6 +119,7 @@
 			
 			<script type='text/javascript'>
 				jQuery(document).ready(function() { 
+					var init = true;
 					var <?php print $vs_id_prefix; ?>oHierBrowser{n} = caUI.initHierBrowser('<?php print $vs_id_prefix; ?>_hierarchyBrowser{n}', {
 						uiStyle: 'horizontal',
 						levelDataUrl: '<?php print caNavUrl($this->request, 'lookup', 'ListItem', 'GetHierarchyLevel', array('noSymbols' => 1, 'voc' => 1, 'lists' => join(';', $va_settings['restrict_to_lists']))); ?>',
@@ -125,13 +135,16 @@
 						
 						editButtonIcon: '<img src="<?php print $this->request->getThemeUrlPath(); ?>/graphics/buttons/arrow_grey_right.gif" border="0" title="Edit"/>',
 						
-						initItemID: <?php print (int)$this->request->session->getVar('ca_list_items_browse_last_id'); ?>,
+						initItemID: <?php print $vn_browse_last_id; ?>,
 						useAsRootID: <?php print $vn_use_as_root_id; ?>,
 						indicatorUrl: '<?php print $this->request->getThemeUrlPath(); ?>/graphics/icons/indicator.gif',
 						
 						currentSelectionDisplayID: '<?php print $vs_id_prefix; ?>_browseCurrentSelectionText{n}',
 						onSelection: function(item_id, parent_id, name, display, type_id) {
-							caRelationBundle<?php print $vs_id_prefix; ?>.select('{n}', [0, item_id, type_id], display);
+							if (!init) {	// Don't actually select the init value, otherwise if you save w/no selection you get "phantom" relationships
+								caRelationBundle<?php print $vs_id_prefix; ?>.select('{n}', [0, item_id, type_id], display);
+							}
+							init = false;
 						}
 					});
 					
@@ -142,6 +155,7 @@
 					jQuery('#<?php print $vs_id_prefix; ?>_hierarchyBrowserSearch{n}').result(function(event, data, formatted) {
 						<?php print $vs_id_prefix; ?>oHierBrowser{n}.setUpHierarchy(data[1]);	// jump browser to selected item
 					});
+
 				});
 			</script>
 <?php
@@ -152,7 +166,7 @@
 	
 	<div class="bundleContainer">
 <?php
-	if(sizeof($va_initial_values)) {
+	if(sizeof($va_initial_values) && !$vb_read_only) {
 ?>
 		<div class="caItemListSortControlTrigger" id="<?php print $vs_id_prefix; ?>caItemListSortControlTrigger">
 			<?php print _t('Sort by'); ?>
@@ -173,7 +187,13 @@
 		</div>
 		<input type="hidden" name="<?php print $vs_id_prefix; ?>BundleList" id="<?php print $vs_id_prefix; ?>BundleList" value=""/>
 		<div style="clear: both; width: 1px; height: 1px;"><!-- empty --></div>
+<?php
+	if (!$vb_read_only) {
+?>	
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label ? $vs_add_label : _t("Add relationship"); ?></a></div>
+<?php
+	}
+?>
 	</div>
 </div>
 			
@@ -198,7 +218,8 @@
 			autocompleteUrl: '<?php print caNavUrl($this->request, 'lookup', 'Vocabulary', 'Get', $va_lookup_params); ?>',
 			lists: <?php print json_encode($va_settings['restrict_to_lists']); ?>,
 			types: <?php print json_encode($va_settings['restrict_to_types']); ?>,
-			isSortable: true,
+			readonly: <?php print $vb_read_only ? "true" : "false"; ?>,
+			isSortable: <?php print $vb_read_only ? "false" : "true"; ?>,
 			listSortOrderID: '<?php print $vs_id_prefix; ?>BundleList',
 			listSortItems: 'div.roundedRel'
 		});

@@ -286,6 +286,7 @@ class ca_object_lots extends BundlableLabelableBaseModelWithAttributes {
 		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
 		
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));
 		
 		$this->BUNDLES['ca_objects'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related objects'));
 		$this->BUNDLES['ca_object_lot_events'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related events'));

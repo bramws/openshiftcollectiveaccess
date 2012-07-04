@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -78,6 +78,7 @@ BaseModel::$s_ca_models_definitions['ca_collections'] =  array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Collection identifier'), 'DESCRIPTION' => _t('A unique alphanumeric identifier for this collection.'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -94,6 +95,7 @@ BaseModel::$s_ca_models_definitions['ca_collections'] =  array(
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LIST_CODE' => 'collection_sources',
 				'LABEL' => _t('Source'), 'DESCRIPTION' => _t('Administrative source of the collection. This value is often used to indicate the administrative sub-division or legacy database from which the collection originates, but can also be re-tasked for use as a simple classification tool if needed.')
 		),
@@ -130,6 +132,7 @@ BaseModel::$s_ca_models_definitions['ca_collections'] =  array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Not accessible to public') => 0,
 					_t('Accessible to public') => 1
@@ -142,6 +145,7 @@ BaseModel::$s_ca_models_definitions['ca_collections'] =  array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -310,6 +314,7 @@ class ca_collections extends BundlableLabelableBaseModelWithAttributes implement
 		$this->BUNDLES['ca_storage_locations'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related storage locations'));
 		
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));
 		
 		$this->BUNDLES['ca_loans'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related loans'));
 		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
@@ -388,13 +393,13 @@ class ca_collections extends BundlableLabelableBaseModelWithAttributes implement
 		if (is_array($va_ancestors) && sizeof($va_ancestors)) {
 			$vn_parent_id = array_pop($va_ancestors);
 			$t_collection = new ca_collections($vn_parent_id);
-			return $t_collection->getLabelForDisplay();
+			return $t_collection->getLabelForDisplay(false);
 		} else {			
 			if ($pn_id == $this->getPrimaryKey()) {
-				return $this->getLabelForDisplay();
+				return $this->getLabelForDisplay(true);
 			} else {
 				$t_collection = new ca_collections($pn_id);
-				return $t_collection->getLabelForDisplay();
+				return $t_collection->getLabelForDisplay(false);
 			}
 		}
 	}

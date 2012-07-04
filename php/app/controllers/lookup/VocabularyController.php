@@ -45,6 +45,7 @@
  		# -------------------------------------------------------
  		public function Get() {
  			$pa_options = array();
+ 			$pa_additional_query_params = array('ca_lists.use_as_vocabulary:1');
  			if ($ps_list = $this->request->getParameter('list', pString)) {
 				if(!is_array($pa_additional_query_params)) { $pa_additional_query_params = array(); }
 				
@@ -58,16 +59,16 @@
 					$pa_options['filters'] = array();
 					foreach($va_lists as $vs_list) {
 						if ($vs_list = trim($vs_list)) {
-							$va_tmp[] = (int)preg_replace("![\"']+!", "", $vs_list);
+							$va_tmp[(int)preg_replace("![\"']+!", "", $vs_list)] = true;
 						}
 					}
 					if (is_array($va_tmp) && sizeof($va_tmp)) {
-						$pa_options['filters'][] = array("ca_list_items.list_id", "IN", join(",", $va_tmp));
+						$pa_options['filters'][] = array("ca_list_items.list_id", "IN", join(",", array_keys($va_tmp)));
 					}
 				}
 			}
-			$pa_options['returnVocabularyOnly'] = true;
- 			return parent::Get(null, $pa_options);	// only lookup items in lists with use_as_vocabulary set
+			
+ 			return parent::Get($pa_additional_query_params, $pa_options);	// only lookup items in lists with use_as_vocabulary set
  		}
  		# -------------------------------------------------------
  	}

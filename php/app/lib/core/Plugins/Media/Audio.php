@@ -666,6 +666,31 @@ class WLPlugMediaAudio Extends WLPlug Implements IWLPlugMedia {
 		return null;
 	}
 	# ------------------------------------------------
+	/** 
+	 *
+	 */
+	public function writeClip($ps_filepath, $ps_start, $ps_end, $pa_options=null) {
+		$o_tc = new TimecodeParser();
+		
+		$vn_start = $vn_end = null;
+		if ($o_tc->parse($ps_start)) { $vn_start = $o_tc->getSeconds(); }
+		if ($o_tc->parse($ps_end)) { $vn_end = $o_tc->getSeconds(); }
+		
+		if (!$vn_start || !$vn_end) { return null; }
+		if ($vn_start >= $vn_end) { return null; }
+		
+		$vn_duration = $vn_end - $vn_start;
+		
+		exec(escapeshellcmd($this->ops_path_to_ffmpeg." -i '".$this->filepath."' -f mp3 -t {$vn_duration}  -y -ss {$vn_start} '{$ps_filepath}'"), $va_output, $vn_return);
+		if ($vn_return != 0) {
+			@unlink($filepath.".".$ext);
+			$this->postError(1610, _t("Error extracting clip from %1 to %2: %3", $ps_start, $ps_end, join("; ", $va_output)), "WLPlugAudio->writeClip()");
+			return false;
+		}
+		
+		return true;
+	}
+	# ------------------------------------------------
 	public function getOutputFormats() {
 		return $this->info["EXPORT"];
 	}
@@ -914,7 +939,7 @@ class WLPlugMediaAudio Extends WLPlug Implements IWLPlugMedia {
 				<p><a href="http://www.adobe.com/go/getflashplayer"><img src="http://www.adobe.com/images/shared/download_buttons/get_flash_player.gif" alt="Get Adobe Flash player" /></a></p>
 			</div>
 			<script type="text/javascript">
-				jQuery(document).ready(function() { swfobject.embedSWF("<?php print $viewer_base_url; ?>/viewers/apps/Siah.swf", "<?php print $vs_id; ?>", "<?php print $vn_width; ?>", "<?php print $vn_height; ?>", "9.0.124", "swf/expressInstall.swf", {'source' : '<?php print $ps_url; ?>', 'dataUrl':'<?php print $vs_data_url; ?>', 'posterFrameUrl': '<?php print $vs_poster_frame_url; ?>'}, {'allowscriptaccess': 'always', 'allowfullscreen' : 'true', 'allowNetworking' : 'all'}); });
+				jQuery(document).ready(function() { swfobject.embedSWF("<?php print $viewer_base_url; ?>/viewers/apps/niftyplayer.swf ", "<?php print $vs_id; ?>", "<?php print $vn_width; ?>", "<?php print $vn_height; ?>", "9.0.124", "swf/expressInstall.swf", {'source' : '<?php print $ps_url; ?>', 'dataUrl':'<?php print $vs_data_url; ?>', 'posterFrameUrl': '<?php print $vs_poster_frame_url; ?>'}, {'allowscriptaccess': 'always', 'allowfullscreen' : 'true', 'allowNetworking' : 'all'}); });
 			</script>
 <?php
 				return ob_get_clean();

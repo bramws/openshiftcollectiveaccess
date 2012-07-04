@@ -49,7 +49,7 @@
  				$t_screen = $this->view->getVar('t_subject');
  				$t_ui = new ca_editor_uis($t_screen->get('ui_id'));
  				if (!$t_ui->getPrimaryKey()) { die("Invalid ui"); }
- 				$va_screens = $t_ui->getScreens();
+ 				$va_screens = $t_ui->getScreens(null, null, array('showAll' => true));
  				
 				$o_result_context = new ResultContext($this->request, 'ca_editor_ui_screens', 'basic_search');
 				$o_result_context->setResultList(array_keys($va_screens));

@@ -126,14 +126,14 @@ class PlaceAttributeValue extends AttributeValue implements IAttributeValue {
 	}
 	# ------------------------------------------------------------------
 	public function loadTypeSpecificValueFromRow($pa_value_array) {
-		$this->opn_place_id = isset($pa_value_array['value_integer1']) ? $pa_value_array['value_integer1'] : null;
+		$this->opn_place_id = $pa_value_array['value_integer1'];
 		require_once(__CA_MODELS_DIR__.'/ca_places.php');
 		$t_place = new ca_places($this->opn_place_id);
 		$this->ops_text = $t_place->getLabelForDisplay().($t_place->get("idno") ? " [".$t_place->get("idno")."]" : "");
 	}
 	# ------------------------------------------------------------------
 	public function getDisplayValue($pa_options=null) {
-		return $this->ops_text."|".$this->opn_place_id;
+		return $this->ops_text;
 	}
  	# ------------------------------------------------------------------
 	public function getPlaceID() {
@@ -218,11 +218,6 @@ class PlaceAttributeValue extends AttributeValue implements IAttributeValue {
 							jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val(data[0] + '|' + data[1]);
 						}
 					);
-					var values = jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val().split('|');
-					if(values.length>1){
-						jQuery('#place_".$pa_element_info['element_id']."_autocomplete{n}').val(values[0]);
-						jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val(values[0]+'|'+values[1]);
-					}
 				});
 			</script>
 		";

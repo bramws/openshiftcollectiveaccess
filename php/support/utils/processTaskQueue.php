@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/local/bin/php
 <?php
 	define('__CollectiveAccess_IS_PROCESSING TASKQUEUE__', 1);
 	$vs_basepath = dirname($_SERVER['SCRIPT_FILENAME']);
@@ -17,6 +17,6 @@
 	require_once(__CA_LIB_DIR__."/core/TaskQueue.php");
 	
 	$vo_tq = new TaskQueue();
-	
-	$vo_tq->processQueue();
+	$vo_tq->processQueue();		// Process queued tasks
+	$vo_tq->runPeriodicTasks();	// Process recurring tasks implemented in plugins
 ?>

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -548,21 +548,32 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 		
 		
 		$va_wheres = array();
+		$va_where_params = array();
 		if ($pb_root_elements_only) {
 			$va_wheres[] = 'cme.parent_id is NULL';
 		}
 		if ($vn_table_num) {
 			$va_wheres[] = 'cmtr.table_num = ?';
+			$va_where_params[] = (int)$vn_table_num;
 			
 			if ($pm_type_name_or_id) {
+				$t_list_item = new ca_list_items();
 				if (!is_numeric($pm_type_name_or_id)) {
-					$t_list_item = new ca_list_items();
-					if ($t_list_item->load(array('idno' => $pm_type_name_or_id))) {
-						$vn_item_id = $t_list_item->getPrimaryKey();
-						$va_wheres[] = 'cmtr.type_id = '.intval($vn_item_id);
-					}
+					$t_list_item->load(array('idno' => $pm_type_name_or_id));
 				} else {
-					$va_wheres[] = 'cmtr.type_id = '.intval($pm_type_name_or_id);
+					$t_list_item->load((int)$pm_type_name_or_id);
+				}
+				$va_type_ids = array();
+				if ($vn_type_id = $t_list_item->getPrimaryKey()) {
+					$va_type_ids[$vn_type_id] = true;
+					if ($qr_children = $t_list_item->getHierarchy($vn_type_id, array())) {
+						while($qr_children->nextRow()) {
+							$va_type_ids[$qr_children->get('item_id')] = true;
+						}
+					}
+					$va_wheres[] = '((cmtr.type_id = ?) OR (cmtr.include_subtypes = 1 AND cmtr.type_id IN (?)))';
+					$va_where_params[] = (int)$vn_type_id;
+					$va_where_params[] = $va_type_ids;
 				}
 			}
 			
@@ -572,7 +583,7 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 				FROM ca_metadata_elements cme
 				INNER JOIN ca_metadata_type_restrictions AS cmtr ON cme.hier_element_id = cmtr.element_id
 				{$vs_wheres}
-			", (int)$vn_table_num);
+			", $va_where_params);
 		} else {
 			if (sizeof($va_wheres)) {
 				$vs_wheres = ' WHERE '.join(' AND ', $va_wheres);
@@ -634,16 +645,26 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 		}
 		if ($vn_table_num) {
 			$va_wheres[] = 'cmtr.table_num = ?';
+			$va_where_params[] = (int)$vn_table_num;
 			
 			if ($pm_type_name_or_id) {
+				$t_list_item = new ca_list_items();
 				if (!is_numeric($pm_type_name_or_id)) {
-					$t_list_item = new ca_list_items();
-					if ($t_list_item->load(array('idno' => $pm_type_name_or_id))) {
-						$vn_item_id = $t_list_item->getPrimaryKey();
-						$va_wheres[] = 'cmtr.type_id = '.intval($vn_item_id);
-					}
+					$t_list_item->load(array('idno' => $pm_type_name_or_id));
 				} else {
-					$va_wheres[] = 'cmtr.type_id = '.intval($pm_type_name_or_id);
+					$t_list_item->load((int)$pm_type_name_or_id);
+				}
+				$va_type_ids = array();
+				if ($vn_type_id = $t_list_item->getPrimaryKey()) {
+					$va_type_ids[$vn_type_id] = true;
+					if ($qr_children = $t_list_item->getHierarchy($vn_type_id, array())) {
+						while($qr_children->nextRow()) {
+							$va_type_ids[$qr_children->get('item_id')] = true;
+						}
+					}
+					$va_wheres[] = '((cmtr.type_id = ?) OR (cmtr.include_subtypes = 1 AND cmtr.type_id IN (?)))';
+					$va_where_params[] = (int)$vn_type_id;
+					$va_where_params[] = $va_type_ids;
 				}
 			}
 			
@@ -653,7 +674,7 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 				FROM ca_metadata_elements cme
 				INNER JOIN ca_metadata_type_restrictions AS cmtr ON cme.hier_element_id = cmtr.element_id
 				{$vs_wheres}
-			", (int)$vn_table_num);
+			", $va_where_params);
 		} else {
 			if (sizeof($va_wheres)) {
 				$vs_wheres = ' WHERE '.join(' AND ', $va_wheres);
@@ -681,8 +702,9 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 		if (!is_array($va_elements) || !sizeof($va_elements)) { return array(); }
 		
 		$va_sortable_elements = array();
-		foreach($va_elements as $vn_id =>$va_element) {
-			if (isset($va_element['settings']['canBeUsedInSort']) && $va_element['settings']['canBeUsedInSort']) {
+		foreach($va_elements as $vn_id => $va_element) {
+			if (!isset($va_element['settings']['canBeUsedInSort'])) { $va_element['settings']['canBeUsedInSort'] = true; }
+			if ($va_element['settings']['canBeUsedInSort']) {
 				$va_sortable_elements[$va_element['element_id']] = $va_element;
 			}
 		}
@@ -953,11 +975,33 @@ class ca_metadata_elements extends LabelableBaseModelWithAttributes implements I
 		
 		$t_restriction = new ca_metadata_type_restrictions();
 		
-		if (($pn_type_id > 0) && $t_restriction->load(array('table_num' => intval($pn_table_num), 'type_id' => intval($pn_type_id), 'element_id' => $vn_element_id))) {
+		if (($pn_type_id > 0) && $t_restriction->load(array('table_num' => (int)$pn_table_num, 'type_id' => (int)$pn_type_id, 'element_id' => (int)$vn_element_id))) {
 			return $t_restriction;
 		} else {
-			if ($t_restriction->load(array('table_num' => intval($pn_table_num), 'type_id' => null, 'element_id' => $vn_element_id))) {
+			if ($t_restriction->load(array('table_num' => (int)$pn_table_num, 'type_id' => null, 'element_id' => (int)$vn_element_id))) {
 				return $t_restriction;
+			}
+			
+			// try going up the hierarchy to find one that we can inherit from
+			if ($pn_type_id && ($t_type_instance = new ca_list_items($pn_type_id))) {
+				$va_ancestors = $t_type_instance->getHierarchyAncestors(null, array('idsOnly' => true));
+				if (is_array($va_ancestors)) {
+					array_pop($va_ancestors); // get rid of root
+					if (sizeof($va_ancestors)) {
+						$qr_res = $this->getDb()->query("
+							SELECT restriction_id
+							FROM ca_metadata_type_restrictions
+							WHERE
+								type_id IN (?) AND table_num = ? AND include_subtypes = 1 AND element_id = ?
+						", array($va_ancestors, (int)$pn_table_num, (int)$vn_element_id));
+						
+						if ($qr_res->nextRow()) {
+							if ($t_restriction->load($qr_res->get('restriction_id'))) {
+								return $t_restriction;
+							}
+						}
+					}
+				}
 			}
 		}
 		return null;

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2007-2011 Whirl-i-Gig
+ * Copyright 2007-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -50,13 +50,15 @@
 		private $opo_db;
 		
 		# -------------------------------------------------------
-		public function __construct($ps_format=null, $ps_type='__default__', $ps_value=null, $po_db=null) {
+		public function __construct($ps_format=null, $pm_type=null, $ps_value=null, $po_db=null) {
+			if (!$pm_type) { $pm_type = array('__default__'); }
+			
 			parent::__construct();
 			$this->opo_idnumber_config = Configuration::load($this->opo_config->get('multipart_id_numbering_config'));
 			$this->opa_formats = $this->opo_idnumber_config->getAssoc('formats');
 			
 			if ($ps_format) { $this->setFormat($ps_format); }
-			if ($ps_type) { $this->setType($ps_type); }
+			if ($pm_type) { $this->setType($pm_type); }
 			if ($ps_value) { $this->setValue($ps_value); }
 			
 			if ((!$po_db) || !is_object($po_db)) { 
@@ -516,7 +518,6 @@
 						///$va_output[] = str_repeat(' ', $vn_pad_len).$va_element_vals[$vn_i];
 						$va_tmp = preg_split('![^A-Za-z0-9]+!',  $va_element_vals[$vn_i]);
 			
-						$va_output = array();
 						$va_zeroless_output = array();
 						$va_raw_output = array();
 						while(sizeof($va_tmp)) {
@@ -545,7 +546,7 @@
 								$va_zeroless_output[] = $vs_piece;
 							}
 						}
-						$va_output[] = join('', $va_raw_output).' '.join('.', $va_zeroless_output);
+						$va_output[] = join('', $va_raw_output); //.' '.join('.', $va_zeroless_output);
 						break;
 					case 'SERIAL':
 					case 'NUMERIC':
@@ -604,7 +605,7 @@
 				if (($va_element_info['type'] == 'SERIAL') && ($va_element_vals[$vn_i] == '')) {
 					$vb_next_in_seq_is_present = true;
 				}
-				$vs_tmp = $this->genNumberElement($vs_element_name, $ps_name, $va_element_vals[$vn_i], $vs_id_prefix, $vb_generate_for_search_form);
+				$vs_tmp = $this->genNumberElement($vs_element_name, $ps_name, $va_element_vals[$vn_i], $vs_id_prefix, $vb_generate_for_search_form, $pa_options);
 				$va_element_control_names[] = $ps_name.'_'.$vs_element_name;
 		
 				if (($pa_options['show_errors']) && (isset($pa_errors[$vs_element_name]))) {
@@ -622,7 +623,7 @@
 			$va_element_error_display = array();
 			if (sizeof($va_elements) < sizeof($va_element_vals)) {
 				$vs_extra_vals = join($vs_separator, array_slice($va_element_vals, sizeof($va_elements)));
-				$va_element_controls[] = "<input type='text' name='".$ps_name."_extra' value='".htmlspecialchars($vs_extra_vals, ENT_QUOTES, 'UTF-8')."' size='10'>";
+				$va_element_controls[] = "<input type='text' name='".$ps_name."_extra' value='".htmlspecialchars($vs_extra_vals, ENT_QUOTES, 'UTF-8')."' size='10'".($pa_options['readonly'] ? ' readonly="readonly" ' : '').">";
 				$va_element_control_names[] = $ps_name.'_extra';
 			}
 			
@@ -746,7 +747,7 @@
 			return $vn_width;
 		}
 		# -------------------------------------------------------
-		private function genNumberElement($ps_element_name, $ps_name, $ps_value, $ps_id_prefix=null, $pb_generate_for_search_form=false) {
+		private function genNumberElement($ps_element_name, $ps_name, $ps_value, $ps_id_prefix=null, $pb_generate_for_search_form=false, $pa_options=null) {
 			if (!($vs_format = $this->getFormat())) {
 				return null;
 			}
@@ -790,14 +791,14 @@
 					$vn_width = $this->getElementWidth($va_element_info, 3);
 					
 					if ($pb_generate_for_search_form) {
-						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="" maxlength="'.$vn_width.'" size="'.$vn_width.'"/>';
+						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="" maxlength="'.$vn_width.'" size="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 					} else {
 						if ($vs_element_value == '') {
 							$vs_next_num = $this->getNextValue($ps_element_name, null, true);
 							$vs_element .= '&lt;'._t('Will be assigned %1 when saved', $vs_next_num).'&gt;';
 						} else {
 							if ($va_element_info['editable']) {
-								$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'" maxlength="'.$vn_width.'"/>';
+								$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'" maxlength="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 							} else {
 								$vs_element .= '<input type="hidden" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'"/>'.$vs_element_value;
 							}
@@ -810,7 +811,7 @@
 					
 					if (!$vs_element_value) { $vs_element_value = $va_element_info['value']; }
 					if ($va_element_info['editable'] || $pb_generate_for_search_form) {
-						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"/>';
+						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 					} else {
 						$vs_element .= '<input type="hidden" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'"/>'.$vs_element_value;
 					}
@@ -822,7 +823,7 @@
 					if (!$vs_element_value && !$pb_generate_for_search_form) { $vs_element_value = $va_element_info['default']; }
 					$vn_width = $this->getElementWidth($va_element_info, 3);
 					if (!$vs_element_value || $va_element_info['editable'] || $pb_generate_for_search_form) {
-						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'" maxlength="'.$vn_width.'"/>';
+						$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'" maxlength="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 					} else {
 						$vs_element .= '<input type="hidden" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'"/>'.$vs_element_value;
 					}
@@ -842,13 +843,13 @@
 						}
 						
 						if ($va_element_info['editable'] || $pb_generate_for_search_form) {
-							$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vn_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"/>';
+							$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vn_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 						} else {
 							$vs_element .= '<input type="hidden" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vn_value, ENT_QUOTES, 'UTF-8').'"/>'.$vn_value;
 						}
 					} else {
 						if ($va_element_info['editable'] || $pb_generate_for_search_form) {
-							$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"/>';
+							$vs_element .= '<input type="text" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'" size="'.$vn_width.'"'.($pa_options['readonly'] ? ' readonly="readonly" ' : '').'/>';
 						} else {
 							$vs_element .= '<input type="hidden" name="'.$vs_element_form_name.'" id="'.$ps_id_prefix.$vs_element_form_name.'" value="'.htmlspecialchars($vs_element_value, ENT_QUOTES, 'UTF-8').'"/>'.$vs_element_value;
 						}

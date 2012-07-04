@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -136,9 +136,9 @@
 			$o_tcp = new TimecodeParser();
 			$o_tcp->setParsedValueInSeconds($this->opn_duration);
 			
-			//TODO: respect localization here
-			
-			return $o_tcp->getText('HOURS_MINUTES_SECONDS'); 
+			$o_config = Configuration::load();
+			if (!($vs_format = $o_config->get('timecode_output_format'))) { $vs_format = 'HOURS_MINUTES_SECONDS'; }
+			return $o_tcp->getText($vs_format); 
 		}
  		# ------------------------------------------------------------------
 		public function getNumberOfSeconds() {

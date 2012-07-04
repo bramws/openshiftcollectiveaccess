@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2007-2011 Whirl-i-Gig
+ * Copyright 2007-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -137,6 +137,34 @@ function caEscapeForXML($ps_text) {
 	$ps_text = str_replace(">", "&gt;", $ps_text);
 	$ps_text = str_replace("'", "&apos;", $ps_text);
 	return str_replace("\"", "&quot;", $ps_text);
+}
+# ----------------------------------------
+function caMakeProperUTF8ForXML($ps_text){
+	// remove/convert invalid bytes
+	$ps_text = mb_convert_encoding($ps_text, 'UTF-8', 'UTF-8');
+	
+	// strip invalid PCDATA characters for XML
+	$vs_return = "";
+	if (empty($ps_text)) {
+		return $vs_return;
+	}
+	 
+	$vn_length = strlen($ps_text);
+	for ($i=0; $i < $vn_length; $i++) {
+		$vn_current = ord($ps_text{$i});
+		if (($vn_current == 0x9) ||
+			($vn_current == 0xA) ||
+			($vn_current == 0xD) ||
+			(($vn_current >= 0x20) && ($vn_current <= 0xD7FF)) ||
+			(($vn_current >= 0xE000) && ($vn_current <= 0xFFFD)) ||
+			(($vn_current >= 0x10000) && ($vn_current <= 0x10FFFF)))
+		{
+			$vs_return .= chr($vn_current);
+		} else {
+			$vs_return .= " ";
+		}
+	}
+	return $vs_return;
 }
 # ----------------------------------------
 # --- Files
@@ -531,17 +559,6 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ---------------------------------------
 	/**
-	 * Sanity check, is it really an URL?
-	 */
-	function caIsUrl($vs_url){
-		if (!preg_match('#^http\\:\\/\\/[a-z0-9\-]+\.([a-z0-9\-]+\.)?[a-z]+#i', $vs_url)) {
-		    return false;
-		} else {
-		    return true;
-		}
-	}
-	# ---------------------------------------
-	/**
 	 * Returns memory used by current request, either in bytes (integer) or in megabytes for display (string)
 	 * 
 	 * If $pb_dont_include_base_usage is set to true (default) then usage is counted from a base level 
@@ -574,7 +591,7 @@ function caFileIsIncludable($ps_file) {
 	 * @return boolean true if it appears to be valid URL, false if not
 	 */
 	function isURL($ps_url) {
-		if (preg_match("!(http|ftp|https|rtmp|rtsp):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&;:/~\+#]*[\w\-\@?^=%&/~\+#])?!", $ps_url, $va_matches)) {
+		if (preg_match("!(http|ftp|https|rtmp|rtsp):\/\/[\w\-_]+(\.[\w\-_]+)*([\w\-\.,@?^=%&;:/~\+#]*[\w\-\@?^=%&/~\+#])?!", $ps_url, $va_matches)) {
 			return array(
 				'protocol' => $va_matches[1],
 				'url' => $ps_url
@@ -883,6 +900,15 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ---------------------------------------
 	/**
+	 * Strips off any leading punctuation leaving letters or numbers as the first character(s)
+	 *
+	 * @param string $ps_string The string to process
+	 */
+	function caStripLeadingPunctuation($ps_string) {
+		return preg_replace('!^[^A-Za-z0-9]+!u', '', trim($ps_string));
+	}
+	# ---------------------------------------
+	/**
 	  *
 	  */
 	function caGetCacheObject($ps_prefix, $pn_lifetime=3600, $ps_cache_dir=null, $pn_cleaning_factor=100) {
@@ -909,6 +935,203 @@ function caFileIsIncludable($ps_file) {
 		} catch (exception $e) {
 			return null;
 		}
+	}
+	# ------------------------------------------------------------------------------------------------
+	/**
+	 * Returns the media class to which a MIME type belongs, or null if the MIME type does not belong to a class. Possible classes are 'image', 'video', 'audio' and 'document'
+	 *
+	 * @param string $ps_mimetype A media MIME type
+	 *
+	 * @return string The media class that includes the specified MIME type, or null if the MIME type does not belong to a class. Returned classes are 'image', 'video', 'audio' and 'document'
+	 */
+	function caGetMediaClass($ps_mimetype) {
+		$va_tmp = explode("/", $ps_mimetype);
+		
+		switch($va_tmp[0]) {
+			case 'image':
+				return 'image';
+				break;
+			case 'video':
+				return 'video';
+				break;
+			case 'audio':
+				return 'audio';
+				break;
+			default:
+				switch($ps_mimetype) {
+					case 'application/pdf':
+					case 'application/postscript':
+					case 'text/xml':
+					case 'text/html':
+					case 'text/plain':
+					case 'application/msword':
+						return 'document';
+						break;
+					case 'x-world/x-qtvr':
+					case 'application/x-shockwave-flash':
+						return 'video';
+						break;
+				}
+				break;
+		}
+		return null;
+	}
+	# ------------------------------------------------------------------------------------------------
+	/**
+	 * Returns all MIME types contained in the specified media class. Note that inclusive type groups will be returned as a general group type.
+	 * Eg. for class 'images' the inclusive MIME type 'image/*' is returned rather than a list of specific image types such as 'image/jpeg', 'image/tiff', etc.
+	 *
+	 * @param string $ps_class The media class to return MIME types for. Valid classes are 'image', 'video', 'audio' and 'document'
+	 * @param array $pa_options Options include
+	 *		returnAsRegex = if set a string suitable for use as a regular expression for matching of MIME types is returned instead of an array
+	 *
+	 * @return mixed An array of MIME types for the class, or a regular expression (string) if returnAsRegex option is set
+	 */
+	function caGetMimetypesForClass($ps_class, $pa_options=null) {
+		$vb_return_as_regex = (isset($pa_options['returnAsRegex']) && $pa_options['returnAsRegex']) ? true : false;
+		switch($ps_class) {
+			case 'image':
+				if ($vb_return_as_regex) {
+					return 'image/.*';
+				} else {
+					return array('image/*');
+				}
+				break;
+			case 'video':
+				if ($vb_return_as_regex) {
+					return 'video/.*|x-world/x-qtvr|application/x-shockwave-flash';
+				} else {
+					return array('video/*', 'x-world/x-qtvr', 'application/x-shockwave-flash');
+				}
+				break;
+			case 'audio':
+				if ($vb_return_as_regex) {
+					return 'audio/.*';
+				} else {
+					return array('audio/*');
+				}
+				break;
+			case 'document':
+				if ($vb_return_as_regex) {
+					return 'application/pdf|application/postscript|text/xml|text/html|text/plain|application/msword';
+				} else {
+					return array('application/pdf', 'application/postscript', 'text/xml', 'text/html', 'text/plain', 'application/msword');
+				}
+				break;
+		}
+		return null;
+	}
+	# ---------------------------------------
+	/**
+	  * Creates an md5-based cached key from an array of options
+	  *
+	  * @param array $pa_options An options array
+	  * @return string An MD5 cache key for the options array
+	  */
+	function caMakeCacheKeyFromOptions($pa_options) {
+		if (!is_array($pa_options)) { return md5($pa_options); }
+		foreach($pa_options as $vs_key => $vm_value) {
+			if (is_object($vm_value)) { unset($pa_options[$vs_key]); }
+		}
+		
+		return md5(print_R($pa_options, true));
+	}
+	# ---------------------------------------
+	/**
+	  * Returns passed value or default (as defined in $g_default_display_value global) if passed value is blank
+	  *
+	  * @param string $ps_text The text value to return if not blank
+	  * @return string The text or default value if text is blank
+	  */
+	function caReturnDefaultIfBlank($ps_text) {
+		global $g_default_display_value;
+		
+		return trim($ps_text) ? $ps_text : $g_default_display_value;
+	}
+	# ---------------------------------------
+	/**
+	  * Formats JSON-encoded data into a format more easily read by semi-sentient life forms
+	  *
+	  * @param string $ps_json The JSON-encoded data
+	  * @return string The JSON-encoded data formatted for ease of reading. Other than spacing and indentation, the returned data is unchanged from the input.
+	  */
+	function caFormatJson($json) {
+		$result      = '';
+		$pos         = 0;
+		$strLen      = strlen($json);
+		$indentStr   = '  ';
+		$newLine     = "\n";
+		$prevChar    = '';
+		$outOfQuotes = true;
+	
+		for ($i=0; $i<=$strLen; $i++) {
+	
+			// Grab the next character in the string.
+			$char = substr($json, $i, 1);
+	
+			// Are we inside a quoted string?
+			if ($char == '"' && $prevChar != '\\') {
+				$outOfQuotes = !$outOfQuotes;
+			
+			// If this character is the end of an element, 
+			// output a new line and indent the next line.
+			} else if(($char == '}' || $char == ']') && $outOfQuotes) {
+				$result .= $newLine;
+				$pos --;
+				for ($j=0; $j<$pos; $j++) {
+					$result .= $indentStr;
+				}
+			}
+			
+			// Add the character to the result string.
+			$result .= $char;
+	
+			// If the last character was the beginning of an element, 
+			// output a new line and indent the next line.
+			if (($char == ',' || $char == '{' || $char == '[') && $outOfQuotes) {
+				$result .= $newLine;
+				if ($char == '{' || $char == '[') {
+					$pos ++;
+				}
+				
+				for ($j = 0; $j < $pos; $j++) {
+					$result .= $indentStr;
+				}
+			}
+			
+			$prevChar = $char;
+		}
+	
+		return $result;
+	}
+	# ---------------------------------------
+	/**
+	  * Parses natural language date and returns pair of Unix timestamps defining date/time range
+	  *
+	  * @param string $ps_date_expression A valid date/time expression as described in http://wiki.collectiveaccess.org/index.php?title=DateAndTimeFormats
+	  * @return array The start and end timestamps for the parsed date/time range. Array contains values key'ed under 0 and 1 and 'start' and 'end'; null is returned if expression cannot be parsed.
+	  */
+	function caDateToUnixTimestamps($ps_date_expression) {
+		$o_tep = new TimeExpressionParser();
+		if ($o_tep->parse($ps_date_expression)) {
+			return $o_tep->getUnixTimestamps();
+		}
+		return null;
+	}
+	# ---------------------------------------
+	/**
+	  * Parses natural language date and returns a Unix timestamp 
+	  *
+	  * @param string $ps_date_expression A valid date/time expression as described in http://wiki.collectiveaccess.org/index.php?title=DateAndTimeFormats
+	  * @return int A Unix timestamp for the date expression or null if expression cannot be parsed.
+	  */
+	function caDateToUnixTimestamp($ps_date_expression) {
+		$o_tep = new TimeExpressionParser();
+		if ($o_tep->parse($ps_date_expression)) {
+			$va_date = $o_tep->getUnixTimestamps();
+			return $va_date['start'];
+		}
+		return null;
 	}
 	# ---------------------------------------
 ?>

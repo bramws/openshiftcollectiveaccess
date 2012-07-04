@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2010 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -27,21 +27,87 @@
  */
 
  	require_once(__CA_MODELS_DIR__.'/ca_user_roles.php');
+ 	require_once(__CA_MODELS_DIR__.'/ca_editor_ui_screens.php');
+ 	require_once(__CA_MODELS_DIR__.'/ca_lists.php');
 
  	class RolesController extends ActionController {
  		# -------------------------------------------------------
  		private $pt_role;
+ 		
+ 		private $opa_bundleable_tables = array('ca_objects', 'ca_entities', 'ca_places', 'ca_occurrences', 'ca_collections', 'ca_loans', 'ca_movements', 'ca_tours', 'ca_tour_stops');
  		# -------------------------------------------------------
  		#
  		# -------------------------------------------------------
  		public function Edit() {
  			$t_role = $this->getRoleObject();
+ 			
+ 			$t_screen = new ca_editor_ui_screens();
+			$o_dm = Datamodel::load();
+			$t_list = new ca_lists();
+			
+			$va_role_vars = $t_role->get('vars');
+			$va_bundle_access_settings = $va_role_vars['bundle_access_settings'];
+	
+			$vn_default_bundle_access_level = (int)$this->request->config->get('default_bundle_access_level');
+	
+			$va_bundle_list = $va_table_names = array(); 
+			foreach($this->opa_bundleable_tables as $vs_table) {
+				$t_instance = $o_dm->getInstanceByTableName($vs_table, true);
+				
+				$va_table_names[$vs_table] = caUcFirstUTF8Safe($t_instance->getProperty('NAME_PLURAL'));
+				
+				$va_available_bundles = $t_screen->getAvailableBundles($vs_table);
+				foreach($va_available_bundles as $vs_bundle_name => $va_bundle_info) {
+					
+					$vn_access = isset($va_bundle_access_settings[$vs_table.'.'.$vs_bundle_name]) ? $va_bundle_access_settings[$vs_table.'.'.$vs_bundle_name] : $vn_default_bundle_access_level;
+					$va_bundle_list[$vs_table][$vs_bundle_name] = array(
+						'bundle_info' => $va_bundle_info,
+						'access' => $vn_access
+					);
+				}
+			}
+			
+			$this->view->setVar('bundle_list', $va_bundle_list);
+			
+			$vn_default_type_access_level = (int)$this->request->config->get('default_type_access_level');
+			
+			$va_type_list = array();
+			$va_type_access_settings = $va_role_vars['type_access_settings'];
+			
+			foreach($this->opa_bundleable_tables as $vs_table) {
+				$t_instance = $o_dm->getInstanceByTableName($vs_table, true);
+				if (!($vs_list_code = $t_instance->getTypeListCode())) { continue; }
+				
+				$va_table_names[$vs_table] = caUcFirstUTF8Safe($t_instance->getProperty('NAME_PLURAL'));
+				$va_types = $t_list->getListItemsAsHierarchy($vs_list_code, array('additionalTableToJoin' => 'ca_list_item_labels'));
+				
+				if (is_array($va_types)) {
+					foreach($va_types as $vn_i => $va_type_info) {
+						$vn_item_id = $va_type_info['NODE']['item_id'];
+						$vn_access = isset($va_type_access_settings[$vs_table.'.'.$vn_item_id]) ? $va_type_access_settings[$vs_table.'.'.$vn_item_id] : $vn_default_type_access_level;
+						$va_type_info['NODE']['level'] = $va_type_info['LEVEL'];
+						
+						$va_type_list[$vs_table][$vn_item_id] = array(
+							'type_info' => $va_type_info['NODE'],
+							'access' => $vn_access
+						);
+					}
+				}
+			}
+			
+			$this->view->setVar('type_list', $va_type_list);
+			$this->view->setVar('table_display_names', $va_table_names);
+			
+ 			
  			$this->render('role_edit_html.php');
  		}
  		# -------------------------------------------------------
  		public function Save() {
  			JavascriptLoadManager::register('tableList');
  			
+			$o_dm = Datamodel::load();
+			$t_list = new ca_lists();
+			
  			$t_role = $this->getRoleObject();
  			$t_role->setMode(ACCESS_WRITE);
  			foreach($t_role->getFormFields() as $vs_f => $va_field_info) {
@@ -50,6 +116,50 @@
  					$this->request->addActionErrors($t_role->errors(), 'field_'.$vs_f);
  				}
  			}
+ 			
+ 			// get vars
+ 			$va_vars = $t_role->get('vars');
+ 			if (!is_array($va_vars)) { $va_vars = array(); }
+ 			
+ 			
+ 			// save bundle access settings
+ 			$t_screen = new ca_editor_ui_screens();
+ 			$va_bundle_access_settings = array();
+ 			foreach($this->opa_bundleable_tables as $vs_table) {
+				$va_available_bundles = $t_screen->getAvailableBundles($vs_table);
+				foreach($va_available_bundles as $vs_bundle_name => $va_bundle_info) {
+					$vs_bundle_name_proc = $vs_table.'_'.str_replace(".", "_", $vs_bundle_name);
+					$vn_access = $this->request->getParameter($vs_bundle_name_proc, pInteger);
+					
+					$va_bundle_access_settings[$vs_table.'.'.$vs_bundle_name] = $vn_access;
+				}
+			}
+			
+ 			$va_vars['bundle_access_settings'] = $va_bundle_access_settings;
+ 			
+ 			if ($t_role->getAppConfig()->get('perform_type_access_checking')) { 
+				// save type access settings
+				$va_type_access_settings = array();
+				
+				foreach($this->opa_bundleable_tables as $vs_table) {
+					$t_instance = $o_dm->getInstanceByTableName($vs_table, true);
+					if (!($vs_list_code = $t_instance->getTypeListCode())) { continue; }
+					$va_type_ids = $t_list->getItemsForList($vs_list_code, array('idsOnly' => true));
+					
+					if (is_array($va_type_ids)) {
+						foreach($va_type_ids as $vn_i => $vn_item_id) {
+							$vn_access = $this->request->getParameter($vs_table.'_type_'.$vn_item_id, pInteger);
+							
+							$va_type_access_settings[$vs_table.'.'.$vn_item_id] = $vn_access;
+						}
+					}
+				}
+				
+				$va_vars['type_access_settings'] = $va_type_access_settings;
+			} 			
+ 			
+ 			$t_role->set('vars', $va_vars);
+ 			
  			// save actions
 			$va_role_action_list = $t_role->getRoleActionList(true);
 			$va_new_role_action_settings = array();

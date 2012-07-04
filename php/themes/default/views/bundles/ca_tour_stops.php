@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -27,12 +27,15 @@
  */
  
 	$vs_id_prefix 		= $this->getVar('placement_code').$this->getVar('id_prefix');
-	$t_item 				= $this->getVar('t_item');				// tour stop
-	$t_item_rel 			= $this->getVar('t_item_rel');
+	$t_instance 		= $this->getVar('t_instance');
+	$t_item 			= $this->getVar('t_item');				// tour stop
+	$t_item_rel 		= $this->getVar('t_item_rel');
 	$t_subject 			= $this->getVar('t_subject');		// object
-	$va_settings 		= 	$this->getVar('settings');
+	$va_settings 		= $this->getVar('settings');
 	$vs_add_label 		= $this->getVar('add_label');
 
+	$vb_read_only		=	((isset($va_settings['readonly']) && $va_settings['readonly'])  || ($this->request->user->getBundleAccessLevel($t_instance->tableName(), 'ca_tour_stops') == __CA_BUNDLE_ACCESS_READONLY__));
+	
 	// params to pass during occurrence lookup
 	$va_lookup_params = (isset($va_settings['restrict_to_type']) && $va_settings['restrict_to_type']) ? array('type' => $va_settings['restrict_to_type'], 'noSubtypes' => (int)$va_settings['dont_include_subtypes_in_type_restriction']) : array();	
 ?>
@@ -54,8 +57,13 @@
 						<input type="hidden" name="<?php print $vs_id_prefix; ?>_id{n}" id="<?php print $vs_id_prefix; ?>_id{n}" value="{id}"/>
 					</td>
 					<td>
+<?php
+	if (!$vb_read_only) {
+?>	
 						<a href="#" class="caDeleteItemButton"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_DEL_BUNDLE__); ?></a>
-						
+<?php
+	}
+?>						
 						<a href="<?php print urldecode(caEditorUrl($this->request, 'ca_tour_stops', '{stop_id}')); ?>" class="caEditItemButton" id="<?php print $vs_id_prefix; ?>_edit_related_{n}"><?php print caNavIcon($this->request, __CA_NAV_BUTTON_GO__); ?></a>
 					</td>
 				</tr>
@@ -67,7 +75,13 @@
 		<div class="caItemList">
 		
 		</div>
+<?php
+	if (!$vb_read_only) {
+?>	
 		<div class='button labelInfo caAddItemButton'><a href='#'><?php print caNavIcon($this->request, __CA_NAV_BUTTON_ADD__); ?> <?php print $vs_add_label ? $vs_add_label : _t("Add relationship"); ?></a></div>
+<?php
+	}
+?>
 	</div>
 </div>
 			
@@ -84,6 +98,7 @@
 			deleteButtonClassName: 'caDeleteItemButton',
 			hideOnNewIDList: ['<?php print $vs_id_prefix; ?>_edit_related_'],
 			showEmptyFormsOnLoad: 1,
+			readonly: <?php print $vb_read_only ? "true" : "false"; ?>,
 			relationshipTypes: <?php print json_encode($this->getVar('relationship_types_by_sub_type')); ?>,
 			autocompleteUrl: '<?php print caNavUrl($this->request, 'lookup', 'TourStop', 'Get', $va_lookup_params); ?>',
 			types: <?php print json_encode($va_settings['restrict_to_types']); ?>

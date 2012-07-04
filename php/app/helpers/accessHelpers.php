@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010-2011 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -83,18 +83,260 @@
 		
 		$va_user_ip = explode('.', $po_request->getClientIP());
 		
-		foreach($va_priv_ips as $vs_priv_ip) {
-			$va_priv_ip = explode('.', $vs_priv_ip);
-			
-			$vb_is_match = true;
-			for($vn_i=0; $vn_i < sizeof($va_priv_ip); $vn_i++) {
-				if (($va_priv_ip[$vn_i] != '*') && ($va_priv_ip[$vn_i] != $va_user_ip[$vn_i])) {
-					continue(2);
+		if (is_array($va_priv_ips)) {
+			foreach($va_priv_ips as $vs_priv_ip) {
+				$va_priv_ip = explode('.', $vs_priv_ip);
+				
+				$vb_is_match = true;
+				for($vn_i=0; $vn_i < sizeof($va_priv_ip); $vn_i++) {
+					if (($va_priv_ip[$vn_i] != '*') && ($va_priv_ip[$vn_i] != $va_user_ip[$vn_i])) {
+						continue(2);
+					}
 				}
+				return true;
 			}
-			return true;
 		}
 		return false;
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Global containing cached type restriction values for the current user and request
+	 */
+	$g_access_helpers_type_restriction_cache = array();
+	
+	/**
+	 * Return list of types to restrict activity by for given table
+	 *
+	 * @param mixed $pm_table_name_or_num Table name of number to fetch types for
+	 * @param array $pa_options Array of options:
+	 *		access = minimum access level user must have to a type for it to be returned. Values are:
+	 *			__CA_BUNDLE_ACCESS_NONE__ (0)
+	 *			__CA_BUNDLE_ACCESS_READONLY__ (1)
+	 *			__CA_BUNDLE_ACCESS_EDIT__ (2)
+	 *			If not specified types are returned for which the user has at least __CA_BUNDLE_ACCESS_READONLY__
+	 *
+	 * @return array List of numeric type_ids for which the user has access
+	 */
+	function caGetTypeRestrictionsForUser($pm_table_name_or_num, $pa_options=null) {
+		global $g_access_helpers_type_restriction_cache;
+		if (!is_array($pa_options)) { $pa_options = array(); }
+		
+		$vs_cache_key = md5($pm_table_name_or_num."/".print_r($pa_options, true));
+		if (isset($g_access_helpers_type_restriction_cache[$vs_cache_key])) { return $g_access_helpers_type_restriction_cache[$vs_cache_key]; }
+		$o_dm = Datamodel::load();
+		
+		$vn_min_access = isset($pa_options['access']) ? (int)$pa_options['access'] : __CA_BUNDLE_ACCESS_READONLY__;
+		
+		if (is_numeric($pm_table_name_or_num)) {
+			$vs_table_name = $o_dm->getTableName($pm_table_name_or_num);
+		} else {
+			$vs_table_name = $pm_table_name_or_num;
+		}
+		$t_instance = $o_dm->getInstanceByTableName($vs_table_name, true);
+		if (!$t_instance) { return null; }	// bad table
+		
+		// get types user has at least read-only access to
+		global $g_request;
+		if ((bool)$t_instance->getAppConfig()->get('perform_type_access_checking') && $g_request && $g_request->isLoggedIn()) {
+			$va_type_ids = $g_request->user->getTypesWithAccess($t_instance->tableName(), $vn_min_access);
+			$va_type_ids = caMakeTypeIDList($pm_table_name_or_num, $va_type_ids, array_merge($pa_options, array('dont_include_subtypes_in_type_restriction' => true)));
+		} 
+		// get types from config file
+		if ($va_config_types = $t_instance->getAppConfig()->getList($vs_table_name.'_restrict_to_types')) {
+			if ((bool)$o_config->get($vs_table_name.'_restrict_to_types_dont_include_subtypes')) {
+				$pa_options['dont_include_subtypes_in_type_restriction'] = true;
+			}
+			$va_config_type_ids = caMakeTypeIDList($pm_table_name_or_num, $va_config_types, $pa_options);
+			
+			if (is_array($va_type_ids) && sizeof($va_type_ids)) {
+				$va_type_ids = array_intersect($va_type_ids, $va_config_type_ids);
+			} else {
+				$va_type_ids = $va_config_type_ids;
+			}
+			
+		}
+		
+		return $g_access_helpers_type_restriction_cache[$vs_cache_key] = $g_access_helpers_type_restriction_cache[$vs_cache_key]= $va_type_ids;
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Converts the given list of type names or type_ids into an expanded list of numeric type_ids suitable for enforcing type restrictions. Processing
+	 * includes expansion of types to include subtypes and conversion of any type codes to type_ids.
+	 *
+	 * @param mixed $pm_table_name_or_num Table name or number to which types apply
+	 * @param array $pa_types List of type codes and/or type_ids that are the basis of the list
+	 * @param array $pa_options Array of options:
+	 * 		dont_include_subtypes_in_type_restriction = if set, returned list is not expanded to include subtypes
+	 *		dontIncludeSubtypesInTypeRestriction = synonym for dont_include_subtypes_in_type_restriction
+	 *
+	 * @return array List of numeric type_ids
+	 */
+	function caMakeTypeIDList($pm_table_name_or_num, $pa_types, $pa_options=null) {
+		$o_dm = Datamodel::load();
+		if(isset($pa_options['dontIncludeSubtypesInTypeRestriction']) && (!isset($pa_options['dont_include_subtypes_in_type_restriction']) || !$pa_options['dont_include_subtypes_in_type_restriction'])) { $pa_options['dont_include_subtypes_in_type_restriction'] = $pa_options['dontIncludeSubtypesInTypeRestriction']; }
+	 	
+		if (isset($pa_options['dont_include_subtypes_in_type_restriction']) && $pa_options['dont_include_subtypes_in_type_restriction']) {
+			$pa_options['noChildren'] = true;
+		}
+		
+		if (is_numeric($pm_table_name_or_num)) {
+			$vs_table_name = $o_dm->getTableName($pm_table_name_or_num);
+		} else {
+			$vs_table_name = $pm_table_name_or_num;
+		}
+		$t_instance = $o_dm->getInstanceByTableName($vs_table_name, true);
+		if (!$t_instance) { return null; }	// bad table
+		if (!($vs_type_list_code = $t_instance->getTypeListCode())) { return null; }	// table doesn't use types
+		
+		$va_type_ids = array();
+		$t_list = new ca_lists();
+		$t_item = new ca_list_items();
+		
+		$vs_list_code = $t_instance->getTypeListCode();
+		foreach($pa_types as $vm_type) {
+			$vn_type_id = null;
+			if (is_numeric($vm_type)) { 
+				$vn_type_id = (int)$vm_type; 
+			} else {
+				$vn_type_id = (int)$t_list->getItemIDFromList($vs_type_list_code, $vm_type);
+			}
+			
+			if ($vn_type_id && !(isset($pa_options['noChildren']) || $pa_options['noChildren'])) {
+				if ($qr_children = $t_item->getHierarchy($vn_type_id, array())) {
+					while($qr_children->nextRow()) {
+						$va_type_ids[$qr_children->get('item_id')] = true;
+					}
+				}
+			} else {
+				if ($vn_type_id) {
+					$va_type_ids[$vn_type_id] = true;
+				}
+			}
+		}
+		return array_keys($va_type_ids);
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Merges types specified with any specified "restrict_to_types"/"restrictToTypes" option, user access settings and types configured in app.conf
+	 * into a single list of type_ids suitable for enforcing type restrictions.
+	 *
+	 * @param BaseModel $t_instance A model instance for the table to which the types apply
+	 * @param array $pa_options An array of options containing, if specified, a list of types for either the "restrict_to_types" or "restrictToTypes" keys
+	 * 
+	 * @return array List of numeric type_ids for which the user has access
+	 */
+	function caMergeTypeRestrictionLists($t_instance, $pa_options) {
+		$va_restrict_to_type_ids = null;
+		if (is_array($pa_options['restrict_to_types']) && sizeof($pa_options['restrict_to_types'])) {
+			$pa_options['restrictToTypes'] = $pa_options['restrict_to_types'];
+		}
+		if (is_array($pa_options['restrictToTypes']) && sizeof($pa_options['restrictToTypes'])) {
+			$va_restrict_to_type_ids = caMakeTypeIDList($t_instance->tableName(), $pa_options['restrictToTypes'], array('noChildren' => true));
+		}
+		
+		$va_types = null;
+		
+		$o_config = Configuration::load();
+		if ((bool)$o_config->get('perform_type_access_checking') && method_exists($t_instance, 'getTypeFieldName') && ($vs_type_field_name = $t_instance->getTypeFieldName())) {
+			$va_types = caGetTypeRestrictionsForUser($t_instance->tableName());
+		}
+		if (is_array($va_types) && sizeof($va_types) && is_array($va_restrict_to_type_ids) && sizeof($va_restrict_to_type_ids)) {
+			if (sizeof($va_tmp = array_intersect($va_restrict_to_type_ids, $va_types))) {
+				$va_types = $va_tmp;
+			}
+		} else {
+			if (!is_array($va_types) || !sizeof($va_types)) {
+				$va_types = $va_restrict_to_type_ids;
+			}
+		}
+		
+		return $va_types;
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Returns allowed access for the currently logged in user to the specified bundle
+	 *
+	 * @param string $ps_table_name Table name of bundle (Eg. ca_objects, ca_entities, ca_places)
+	 * @param string $ps_bundle_name Name of bundle (Eg. preferred_labels, date)
+	 * @return int Numeric constant representing access. Values are:
+	 *		__CA_BUNDLE_ACCESS_NONE__ (0)
+	 *		__CA_BUNDLE_ACCESS_READONLY__ (1)
+	 *		__CA_BUNDLE_ACCESS_EDIT__ (2)
+	 */
+	function caGetBundleAccessLevel($ps_table_name, $ps_bundle_name) {
+		list($ps_table_name, $ps_bundle_name) = caTranslateBundlesForAccessChecking($ps_table_name, $ps_bundle_name);
+		global $g_request;
+		if ($g_request) {
+			return $g_request->user->getBundleAccessLevel($ps_table_name, $ps_bundle_name);
+		}
+		
+		$o_config = Configuration::load();
+		return (int)$o_config->get('default_bundle_access_level');
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Returns allowed access for the currently logged in user to the specified type
+	 *
+	 * @param string $ps_table_name Table name of bundle (Eg. ca_objects, ca_entities, ca_places)
+	 * @param string $pm_type_code_or_id Code or type_id for type to check
+	 * @return int Numeric constant representing access. Values are:
+	 *		__CA_BUNDLE_ACCESS_NONE__ (0)
+	 *		__CA_BUNDLE_ACCESS_READONLY__ (1)
+	 *		__CA_BUNDLE_ACCESS_EDIT__ (2)
+	 */
+	function caGetTypeAccessLevel($ps_table_name, $pm_type_code_or_id) {
+		global $g_request;
+		if ($g_request) {
+			return $g_request->user->getTypeAccessLevel($ps_table_name, $pm_type_code_or_id);
+		}
+		
+		$o_config = Configuration::load();
+		return (int)$o_config->get('default_type_access_level');
+	}
+	# ---------------------------------------------------------------------------------------------
+	/**
+	 * Transforms various alternative bundle expressions supported by get() into canonical bundle names suitable for determining users' access rights.
+	 *
+	 * @param string $ps_table_name Name of table
+	 * @param string $ps_bundle_name Name of bundle
+	 * @return array Array with first element set to transformed table name and the second to transformed bundle name
+	 */
+	function caTranslateBundlesForAccessChecking($ps_table_name, $ps_bundle_name) {
+		
+		$va_tmp = explode(".", $ps_bundle_name);
+		if (in_array($va_tmp[1], array('hierarchy', 'parent', 'children'))) {
+			unset($va_tmp[1]); 
+		}
+		
+		$o_dm = Datamodel::load();
+		if (!($t_instance = $o_dm->getInstanceByTableName($ps_table_name, true))) { return array($ps_table_name, $ps_bundle_name); }
+		
+			
+		// Translate primary label references
+		if (method_exists($t_instance, 'getLabelTableName')) {
+			if ($t_instance->getLabelTableName() == $va_tmp[0]) {
+				return array($ps_table_name, 'preferred_labels');
+			}
+		}
+		
+		// Translate related label references
+		$t_rel = $o_dm->getInstanceByTableName($va_tmp[0], true);
+		if ($t_rel) {
+			if (method_exists($t_rel, 'getSubjectTableName')) {
+				return array($t_rel->getSubjectTableName(), 'preferred_labels');
+			}
+		}
+		
+		// Related tables
+		if($t_rel && (is_array($va_path = $o_dm->getPath($va_tmp[0], $ps_table_name))) && (sizeof($va_path) == 3)) {
+			return array($ps_table_name, $va_tmp[0]);
+		}
+		
+		// Translate subfields
+		if (sizeof($va_tmp = explode('.', $ps_bundle_name)) > 2) {
+			return array($va_tmp[0], $va_tmp[1]);
+		}
+		return array($ps_table_name, $ps_bundle_name); 
 	}
 	# ---------------------------------------------------------------------------------------------
  ?>

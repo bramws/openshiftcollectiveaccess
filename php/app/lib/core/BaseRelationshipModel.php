@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -280,18 +280,21 @@
 					
 					// skip type if it has a subtype set and it's not in our list
 					$vs_subtype_orientation = null;
+					$vs_subtype = null;
 					if (
-						!(((in_array($qr_res->get('sub_type_left_id'), $va_ancestor_ids))))
+						$qr_res->get('sub_type_left_id') && !(((in_array($qr_res->get('sub_type_left_id'), $va_ancestor_ids))))
 					) { 
-						if (!((in_array($qr_res->get('sub_type_right_id'), $va_ancestor_ids)))) {
-							//continue;
+						if ($qr_res->get('sub_type_right_id') && !((in_array($qr_res->get('sub_type_right_id'), $va_ancestor_ids)))) {
+							///continue;
 						} else {
 							$vs_subtype = $qr_res->get('sub_type_left_id');	
 							$vs_subtype_orientation = "left";
 						}
 					} else {
-						$vs_subtype = $qr_res->get('sub_type_right_id');
-						$vs_subtype_orientation = "right";
+						if ($qr_res->get('sub_type_right_id') && ((in_array($qr_res->get('sub_type_right_id'), $va_ancestor_ids)))) {
+							$vs_subtype = $qr_res->get('sub_type_right_id');
+							$vs_subtype_orientation = "right";
+						}
 					}
 					if (!$vs_subtype) { $vs_subtype = 'NULL'; }
 					
@@ -312,7 +315,6 @@
 							$va_types[$vs_subtype][$qr_res->get('type_id')][$qr_res->get('locale_id')] = $va_tmp;
 							break;
 						default:
-							
 							$va_tmp = $va_row;
 							if ($va_tmp['typename'] == $va_tmp['typename_reverse']) {
 								//

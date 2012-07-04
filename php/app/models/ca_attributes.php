@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -163,7 +163,7 @@ class ca_attributes extends BaseModel {
 		)
 	);
 	
-	static $s_attribute_cache_size = 125;
+	static $s_attribute_cache_size = 1024;
 	static $s_get_attributes_cache = array();
 	static $s_ca_attributes_element_instance_cache = array();
 	
@@ -251,6 +251,7 @@ class ca_attributes extends BaseModel {
 			}
 			if (($vb_status = $t_attr_val->addValue($vm_value, $va_element, $vn_attribute_id)) === false) {
 				$this->postError(1972, join('; ', $t_attr_val->getErrors()), 'ca_attributes->addAttribute()');
+				$vb_dont_create_attribute = false;	// this causes an error to be displayed to the user, which is what we want here
 				break;
 			}
 			
@@ -265,6 +266,7 @@ class ca_attributes extends BaseModel {
 			// we should simply skip the attribute without error. This behavior is typically used to allow
 			// empty values to pass without complaint.
 			//
+			$this->delete(true);	// nuke existing ca_attributes record
 			if (!$vb_already_in_transaction) {
 				$o_trans->rollback();
 			}

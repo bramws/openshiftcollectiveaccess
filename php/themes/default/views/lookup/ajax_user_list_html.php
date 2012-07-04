@@ -26,6 +26,6 @@
  * ----------------------------------------------------------------------
  */
 	foreach($this->getVar('user_list') as $vn_item_id => $va_item) {
-		print str_replace("|", "-", $va_item['_display'])."|".$vn_item_id."|".$va_item['type_id']."\n";
+		print str_replace("|", "-", $va_item['_display'])."|".$vn_item_id."|".$va_item['type_id']."|".$va_item['fname']."|".$va_item['lname']."|".$va_item['email']."\n";
 	}
 ?>

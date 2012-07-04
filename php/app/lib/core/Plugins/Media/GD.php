@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2006-2011 Whirl-i-Gig
+ * Copyright 2006-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -43,6 +43,7 @@ include_once(__CA_LIB_DIR__."/core/Plugins/IWLPlugMedia.php");
 include_once(__CA_LIB_DIR__."/core/Parsers/TilepicParser.php");
 include_once(__CA_LIB_DIR__."/core/Configuration.php");
 include_once(__CA_APP_DIR__."/helpers/mediaPluginHelpers.php");
+include_once(__CA_LIB_DIR__."/core/Parsers/MediaMetadata/XMPParser.php");
 
 class WLPlugMediaGD Extends WLPlug Implements IWLPlugMedia {
 	var $errors = array();
@@ -84,8 +85,8 @@ class WLPlugMediaGD Extends WLPlug Implements IWLPlugMedia {
 			"UNSHARPEN_MASK"	=> array("radius", "sigma", "amount", "threshold"),
 		),
 		"PROPERTIES" => array(
-			"width" 			=> 'R',
-			"height" 			=> 'R',
+			"width" 			=> 'W',
+			"height" 			=> 'W',
 			"mimetype" 			=> 'R',
 			"typename" 			=> 'R',
 			'tiles'				=> 'R',
@@ -271,6 +272,12 @@ class WLPlugMediaGD Extends WLPlug Implements IWLPlugMedia {
 						case 'output_layer':
 							$this->properties["output_layer"] = $value;
 							break;
+						case 'width':
+							$this->properties["width"] = $value;
+							break;
+						case 'height':
+							$this->properties["height"] = $value;
+							break;
 						default:
 							if ($this->info["PROPERTIES"][$property] == 'W') {
 								$this->properties[$property] = $value;
@@ -344,12 +351,52 @@ class WLPlugMediaGD Extends WLPlug Implements IWLPlugMedia {
 					$vs_typename = "GIF";
 					break;
 				case IMAGETYPE_JPEG:
-					$this->handle = imagecreatefromjpeg($filepath);
+					if(function_exists('exif_read_data')) {
+						$this->metadata["EXIF"] = $va_exif = @exif_read_data($filepath, 'EXIF', true, false);
+						
+						
+						//
+						// Rotate incoming image as needed
+						//
+						if (is_array($va_exif)) { 
+							if (isset($va_exif['IFD0']['Orientation'])) {
+								$vn_orientation = $va_exif['IFD0']['Orientation'];
+								switch($vn_orientation) {
+									case 3:
+										$this->handle = imagecreatefromjpeg($filepath);
+										$this->handle = $this->rotateImage($this->handle, -180);
+										break;
+									case 6:
+										$this->handle = imagecreatefromjpeg($filepath);
+										$this->handle = $this->rotateImage($this->handle, -90);
+										$va_tmp = $va_info;
+										$va_info[0] = $va_tmp[1];
+										$va_info[1] = $va_tmp[0];
+										break;
+									case 8:
+										$this->handle = imagecreatefromjpeg($filepath);
+										$this->handle = $this->rotateImage($this->handle, 90);
+										$va_tmp = $va_info;
+										$va_info[0] = $va_tmp[1];
+										$va_info[1] = $va_tmp[0];
+										break;
+								}
+							}
+						}
+					}
+					
+					if (!$this->handle) {
+						$this->handle = imagecreatefromjpeg($filepath);
+					}
 					$vs_mimetype = "image/jpeg";
 					$vs_typename = "JPEG";
 					
-					if(function_exists('exif_read_data')) {
-						$this->metadata["METADATA_EXIF"] = exif_read_data($filepath);
+					
+					$o_xmp = new XMPParser();
+					if ($o_xmp->parse($ps_filepath)) {
+						if (is_array($va_xmp_metadata = $o_xmp->getMetadata()) && sizeof($va_xmp_metadata)) {
+							$va_metadata['XMP'] = $va_xmp_metadata;
+						}
 					}
 					break;
 				case IMAGETYPE_PNG:
@@ -379,6 +426,61 @@ class WLPlugMediaGD Extends WLPlug Implements IWLPlugMedia {
 				return false;
 			}
 		}
+	}
+	# ----------------------------------------------------------
+	function rotateImage($img, $rotation) {
+		$width = imagesx($img);
+		$height = imagesy($img);
+		
+		if ($rotation < 0) { $rotation += 360; }
+		switch($rotation) {
+			case 90: 
+				$newimg= @imagecreatetruecolor($height , $width );
+				break;
+			case 180: 
+				$newimg= @imagecreatetruecolor($width , $height );
+				break;
+			case 270: 
+			case -90:
+				$newimg= @imagecreatetruecolor($height , $width );
+				break;
+			case 0: 
+			case 360:
+				return $img;
+				break;
+		}
+		
+		if($newimg) { 
+			for($i = 0;$i < $width ; $i++) { 
+				for($j = 0;$j < $height ; $j++) {
+					$reference = imagecolorat($img,$i,$j);
+					switch($rotation) {
+						case 270: 
+						case -90:
+							if(!@imagesetpixel($newimg, ($height - 1) - $j, $i, $reference )){
+								return false;
+							}
+							$this->set('width', $height);
+							$this->set('height', $width);
+							break;
+						case 180: 
+							if(!@imagesetpixel($newimg, $width - $i, ($height - 1) - $j, $reference )){
+								return false;
+							}
+							break;
+						case 90: 
+							if(!@imagesetpixel($newimg, $j, $width - $i, $reference )){
+								return false;
+							}
+							$this->set('width', $height);
+							$this->set('height', $width);
+							break;
+					}
+				}
+			} 
+			return $newimg; 
+		} 
+		return false;
 	}
 	# ----------------------------------------------------------
 	public function transform($operation, $parameters) {

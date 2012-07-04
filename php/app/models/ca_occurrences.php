@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -77,6 +77,7 @@ BaseModel::$s_ca_models_definitions['ca_occurrences'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Identifier'), 'DESCRIPTION' => _t('A unique alphanumeric identifier for this entry.'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -93,6 +94,7 @@ BaseModel::$s_ca_models_definitions['ca_occurrences'] = array(
 				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => true, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LIST_CODE' => 'occurrence_sources',
 				'LABEL' => _t('Source'), 'DESCRIPTION' => _t('Administrative source. This value is often used to indicate the administrative sub-division or legacy database from which the information originates, but can also be re-tasked for use as a simple classification tool if needed.')
 		),
@@ -129,6 +131,7 @@ BaseModel::$s_ca_models_definitions['ca_occurrences'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Not accessible to public') => 0,
 					_t('Accessible to public') => 1
@@ -141,6 +144,7 @@ BaseModel::$s_ca_models_definitions['ca_occurrences'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -305,13 +309,14 @@ class ca_occurrences extends BundlableLabelableBaseModelWithAttributes implement
 		$this->BUNDLES['ca_object_lots'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related lot'));
 		$this->BUNDLES['ca_occurrences'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related occurrences'));
 		$this->BUNDLES['ca_collections'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related collections'));
-		$this->BUNDLES['ca_occurrences'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related occurrences'));
+		$this->BUNDLES['ca_places'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related places'));
 		$this->BUNDLES['ca_storage_locations'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related storage locations'));
 		
 		$this->BUNDLES['ca_loans'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related loans'));
 		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
 		
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));
 	
 		$this->BUNDLES['hierarchy_navigation'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Hierarchy navigation'));
 		$this->BUNDLES['hierarchy_location'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Location in hierarchy'));
@@ -370,13 +375,13 @@ class ca_occurrences extends BundlableLabelableBaseModelWithAttributes implement
 		if (is_array($va_ancestors) && sizeof($va_ancestors)) {
 			$vn_parent_id = array_pop($va_ancestors);
 			$t_occ = new ca_occurrences($vn_parent_id);
-			return $t_occ->getLabelForDisplay();
+			return $t_occ->getLabelForDisplay(false);
 		} else {			
 			if ($pn_id == $this->getPrimaryKey()) {
-				return $this->getLabelForDisplay();
+				return $this->getLabelForDisplay(true);
 			} else {
 				$t_occ = new ca_occurrences($pn_id);
-				return $t_occ->getLabelForDisplay();
+				return $t_occ->getLabelForDisplay(false);
 			}
 		}
 	}

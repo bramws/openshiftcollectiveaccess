@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -47,7 +47,7 @@
  		public function EditCataloguingPrefs() {
  			$this->view->setVar('t_user', $this->request->user);
  			$this->view->setVar('group', 'cataloguing');
- 			$this->render('preferences_html.php');
+ 			$this->render('preferences_cataloguing_html.php');
  		}
  		# -------------------------------------------------------
  		public function EditUnitsPrefs() {
@@ -64,13 +64,7 @@
  		# -------------------------------------------------------
  		public function EditProfilePrefs() {
  			$this->view->setVar('t_user', $this->request->user);
- 			$this->view->setVar('group', 'user_profile');
- 			
- 			foreach(array('fname', 'lname', 'email') as $vs_pref) {
- 				if (!$this->request->user->getPreference($vs_pref)) {
- 					$this->request->user->setPreference($vs_pref, $this->request->user->get($vs_pref));
- 				}
- 			}
+ 			$this->view->setVar('group', 'profile');
  			
  			$this->render('preferences_html.php');
  		}
@@ -90,9 +84,22 @@
  				case 'EditCataloguingPrefs':
  					$vs_group = 'cataloguing';
  					
- 					foreach($this->request->user->getValidPreferences($vs_group) as $vs_pref) {
-						$this->request->user->setPreference($vs_pref, $this->request->getParameter('pref_'.$vs_pref, pString));
+					$this->request->user->setPreference('cataloguing_locale', $this->request->getParameter('pref_cataloguing_locale', pString));
+					
+ 					$va_ui_prefs = array();
+					foreach($this->request->user->getValidPreferences($vs_group) as $vs_pref) {
+					
+						foreach($_REQUEST AS $vs_k => $vs_v) {
+							if (preg_match("!pref_{$vs_pref}_([\d]+)!", $vs_k, $va_matches)) {
+								$va_ui_prefs[$vs_pref][$va_matches[1]] = $vs_v;
+							}
+						}
+					
+						foreach($va_ui_prefs as $vs_pref => $va_values ){
+							$this->request->user->setPreference($vs_pref, $va_values);
+						}
 					}
+					$vs_view_name = 'preferences_cataloguing_html.php';
  					break;
  				case 'EditMediaPrefs':
  					$vs_group = 'media';
@@ -109,17 +116,17 @@
 					}
  					break;
  				case 'EditProfilePrefs':
- 					$vs_group = 'user_profile';
+ 					$vs_group = 'profile';
  					
- 					foreach(array('fname', 'lname', 'email') as $vs_pref) {
+ 					foreach($this->request->user->getValidPreferences($vs_group) as $vs_pref) {
 						$this->request->user->setPreference($vs_pref, $this->request->getParameter('pref_'.$vs_pref, pString));
- 						$this->request->user->set($vs_pref, $this->request->getParameter('pref_'.$vs_pref, pString));
- 					}
+					}
  					break;
  				case 'EditDuplicationPrefs':
  					$vs_group = 'duplication';
  					foreach(array(
-						'ca_objects'
+						'ca_objects', 'ca_object_lots', 'ca_entities', 'ca_places', 'ca_occurrences', 'ca_collections', 'ca_storage_locations',
+						'ca_loans', 'ca_movements', 'ca_lists', 'ca_list_items', 'ca_tours', 'ca_tour_stops', 'ca_sets', 'ca_bundle_displays'
 					) as $vs_table) {
 						foreach($this->request->user->getValidPreferences($vs_group) as $vs_pref) {
 							if ($vs_pref == 'duplicate_relationships') {

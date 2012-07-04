@@ -69,6 +69,22 @@
 ?>
 				</td>
 			</tr>
+			<tr>
+				<td colspan="2">
+<?php
+		// Output user profile settings if defined
+		$va_user_profile_settings = $this->getVar('profile_settings');
+		if (is_array($va_user_profile_settings) && sizeof($va_user_profile_settings)) {
+			foreach($va_user_profile_settings as $vs_field => $va_info) {
+				if($va_errors[$vs_field]){
+					print "<div class='formErrors' style='text-align: left;'>".$va_errors[$vs_field]."</div>";
+				}
+				print $va_info['element']."\n";
+			}
+		}
+?>				
+				</td>
+			</tr>
 		</table>
 	</form>
 <?php

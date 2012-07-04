@@ -107,11 +107,18 @@
 				if ($t_table->hasField('deleted')) {
 					$vs_deleted_sql = " AND (t.deleted = 0) ";
 				}
+				$vs_idno_sql = '';
+				if ($t_table->hasField('idno')) {
+					$vs_idno_sql = "t.idno,";
+				} elseif ($t_table->hasField('idno_stub')) {
+					$vs_idno_sql = "t.idno_stub,";
+				}
 				
 				$vs_sql = "
 					SELECT
 						t.{$t_table->primaryKey()},
 						lt.{$t_table->getLabelDisplayField()},
+						{$vs_idno_sql}
 						lt.locale_id
 					FROM
 						{$t_table->tableName()} t
@@ -153,8 +160,10 @@
 					}
 					$va_item_list[$qr_records->get($t_table->primaryKey())] = array(
 						"display" => $qr_records->get($t_table->getLabelTableName().".".$t_table->getLabelDisplayField()),
+						"idno" => $qr_records->get("idno"),
+						"idno_stub" => $qr_records->get("idno_stub"),
 						"locale_id" => $qr_records->get($t_table->getLabelTableName().".locale_id"),
-						"datetime" => $vn_time_created,
+						"datetime" => $vn_time_created
 					);
 				}
 				if(!(intval($pa_settings["height_px"]) > 30 && intval($pa_settings["height_px"]) < 1000)){ // if value is not within reasonable boundaries, set it to default
@@ -166,6 +175,7 @@
 				$this->opo_view->setVar('table_num', $this->opo_datamodel->getTableNum($t_table->tableName()));
 				$this->opo_view->setVar('request', $this->getRequest());
 				$this->opo_view->setVar('table_display', $this->opa_table_display_names[$t_table->tableName()]);
+				$this->opo_view->setVar('idno_display', (isset($pa_settings["display_idno"]) ? $pa_settings["display_idno"] : FALSE));
 
 				return $this->opo_view->render('main_html.php');
 			}
@@ -257,5 +267,18 @@
 				'label' => _t('Display limit'),
 				'description' => _t('Limits the number of records to be listed in the widget.')
 			),
+			'display_idno' => array(
+				'formatType' => FT_TEXT,
+				'displayType' => DT_SELECT,
+				'width' => 5, 'height' => 1,
+				'takesLocale' => false,
+				'default' => '0',
+				'options' => array(
+					_t('No') => '0',
+					_t('Yes') => "1"
+				),
+				'label' => _t('Display identifier'),
+				'description' => _t('Display label and identifier')
+			)
 	);
 ?>

@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010-2011 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -62,6 +62,7 @@ BaseModel::$s_ca_models_definitions['ca_movements'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'LABEL' => _t('Movement identifier'), 'DESCRIPTION' => _t('A unique alphanumeric identifier for this movement.'),
 				'BOUNDS_LENGTH' => array(0,255)
 		),
@@ -85,6 +86,7 @@ BaseModel::$s_ca_models_definitions['ca_movements'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,

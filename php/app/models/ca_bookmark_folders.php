@@ -164,10 +164,13 @@ class ca_bookmark_folders extends BaseModel {
 	/**
 	 *
 	 */
-	private function _getFolderID($pn_folder_id, $pn_user_id) {
+	private function _getFolderID($pn_folder_id=null, $pn_user_id=null) {
+		global $AUTH_CURRENT_USER_ID;
+		
+		if (!$pn_user_id) { $pn_user_id = $AUTH_CURRENT_USER_ID; }
 		$vn_folder_id = $this->getPrimaryKey();
-		if ($vn_folder_id != $pn_folder_id) {
-			$t_folder = new ca_bookmark_folders($vn_folder_id);
+		if ($pn_folder_id && ($vn_folder_id != $pn_folder_id)) {
+			$t_folder = new ca_bookmark_folders($pn_folder_id);
 			if ($t_folder->get('user_id') == $pn_user_id) {
 				return $t_folder->getPrimaryKey();
 			}
@@ -243,13 +246,40 @@ class ca_bookmark_folders extends BaseModel {
 		foreach($va_rows as $vn_table_num => $va_bookmark_list) {
 			//foreach($va_bookmark_list as $vn_bookmark_id => $vn_row_id
 			$va_row_ids = array_keys($va_bookmark_list);
-			
-			$t_instance = $this->opo_datamodel->getInstanceForTableNum($vn_table_num, true);
+			$t_instance = $this->_DATAMODEL->getInstanceByTableNum($vn_table_num, true);
 			$va_labels = $t_instance->getPreferredDisplayLabelsForIDs($va_row_ids);
-			
 			foreach($va_labels as $vn_row_id => $vs_label) {
 				$va_bookmarks[$va_bookmark_list[$vn_row_id]]['label'] = $vs_label;
-			}
+				# --- pass primary key of table, tablename and controller to link to detail page for creating links in bookmark lists
+				# --- doing this here since the table instance is loaded already
+				$va_bookmarks[$va_bookmark_list[$vn_row_id]]['primary_key'] = $t_instance->PrimaryKey();
+				$va_bookmarks[$va_bookmark_list[$vn_row_id]]['tablename'] = $t_instance->Tablename();
+				$vs_controller = "";
+				switch($t_instance->Tablename()){
+					case "ca_objects":
+						$vs_controller = "Object";
+					break;
+					# -----------------------------
+					case "ca_entities":
+						$vs_controller = "Entity";
+					break;
+					# -----------------------------
+					case "ca_places":
+						$vs_controller = "Place";
+					break;
+					# -----------------------------
+					case "ca_occurrences":
+						$vs_controller = "Occurrence";
+					break;
+					# -----------------------------
+					case "ca_collections":
+						$vs_controller = "Collection";
+					break;
+					# -----------------------------
+				}
+				$va_bookmarks[$va_bookmark_list[$vn_row_id]]['controller'] = $vs_controller;
+			
+			}			
 		}
 		
 		return $va_bookmarks;
@@ -258,14 +288,23 @@ class ca_bookmark_folders extends BaseModel {
 	/**
 	 *
 	 */
-	public function addBookmark($pn_table_num, $pn_row_id, $ps_notes=null, $pn_rank=null, $pn_folder_id=null, $pn_user_id=null) {
+	public function addBookmark($pn_table_name_or_num, $pn_row_id, $ps_notes=null, $pn_rank=null, $pn_folder_id=null, $pn_user_id=null) {
 		if (!($vn_folder_id = $this->_getFolderID($pn_folder_id, $pn_user_id))) { return false; }
 		if (!$pn_rank) { $pn_rank = 0; }
-	
+		
+		if ($pn_table_name_or_num && !($vn_table_num = $this->_getTableNum($pn_table_name_or_num))) { return null; }
+
 		$t_bookmark = new ca_bookmarks();
+		
+		# --- check if this item already exists in this folder
+		$t_bookmark->load(array("folder_id" => $vn_folder_id, "table_num" => $vn_table_num, "row_id" => $pn_row_id));
+		if($t_bookmark->getPrimaryKey()){
+			return $t_bookmark->getPrimaryKey();
+		}
+		
 		$t_bookmark->setMode(ACCESS_WRITE);
 		$t_bookmark->set('folder_id', $vn_folder_id);
-		$t_bookmark->set('table_num', $pn_table_num);
+		$t_bookmark->set('table_num', $vn_table_num);
 		$t_bookmark->set('row_id', $pn_row_id);
 		$t_bookmark->set('notes', $ps_notes);
 		$t_bookmark->set('rank', $pn_rank);
@@ -402,5 +441,26 @@ class ca_bookmark_folders extends BaseModel {
 		return $va_bookmarks;
 	}
 	# ----------------------------------------
+	/**
+	 * Returns table number for specified table name (or number) and validates that it exists.
+	 *
+	 * @param mixed $pm_table_name_or_num Name or number of table
+	 * @return int Corresponding table number or null if table does not exist
+	 */
+	private function _getTableNum($pm_table_name_or_num) {
+		$o_dm = $this->getAppDatamodel();
+		if (!is_numeric($pm_table_name_or_num)) {
+			$vn_table_num = $o_dm->getTableNum($pm_table_name_or_num);
+		} else {
+			$vn_table_num = $pm_table_name_or_num;
+		}
+		
+		if (!$o_dm->getInstanceByTableNum($vn_table_num, true)) {
+			// table name or number is not valid
+			return null;
+		}
+		return $vn_table_num;
+	}
+	# ------------------------------------------------------
 }
 ?>

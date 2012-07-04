@@ -40,7 +40,7 @@
 					<tr>
 <?php
 						foreach($va_element_list as $vs_element) {
-							print '<tr><td class="attributeListItem"><div class="searchFormLineModeElementLabel">'.$vs_element."</div></td></tr>\n";
+							print '<tr><td class="attributeListItem"><div class="searchFormLineModeElementSubLabel">'.$vs_element."</div></td></tr>\n";
 						}
 ?>
 					</tr>

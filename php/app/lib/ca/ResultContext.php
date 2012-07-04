@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010-2011 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -394,11 +394,16 @@
 					return $va_context['param_'.$ps_param] ? $va_context['param_'.$ps_param] : null;
 				}
 			} else {
-				if (!($vs_value = $this->opo_request->getParameter($ps_param, pString))) {
+				if (!isset($_REQUEST[$ps_param]) && !$this->opo_request->getParameter($ps_param, pString)) {
 					if ($va_context = $this->getContext()) {
-						return $va_context['param_'.$ps_param] ? $va_context['param_'.$ps_param] : null;
+						if (is_array($va_context['param_'.$ps_param])) {
+							return $va_context['param_'.$ps_param];
+						} else {
+							return strlen($va_context['param_'.$ps_param]) ? $va_context['param_'.$ps_param] : null;
+						}
 					}
 				} else {
+					$vs_value = $this->opo_request->getParameter($ps_param, pString);
 					$this->setContextValue('param_'.$ps_param, $vs_value);
 					return $vs_value;
 				}
@@ -569,13 +574,26 @@
 				$vs_find_type = $this->ops_find_type;
 			}
 			$o_storage = $this->getPersistentStorageInstance();
+			$o_semi_storage = $this->getSemiPersistentStorageInstance();
 			
 			if ($ps_find_type) {
-				return $o_storage->getVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type); 
+				if(!is_array($va_semi = $o_semi_storage->getVar('result_context_'.$this->ops_table_name.'_'.$ps_find_type))) {
+					$va_semi = array();
+				}
+				if (!is_array($va_context = $o_storage->getVar('result_context_'.$this->ops_table_name.'_'.$ps_find_type))) { 
+					$va_context = array();
+				}
+				return array_merge($va_context, $va_semi); 
 			}
 			
 			if (!$this->opa_context) { 
-				$this->opa_context = $o_storage->getVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type); 
+				if(!is_array($va_semi = $o_semi_storage->getVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type))) {
+					$va_semi = array();
+				}
+				if(!is_array($va_context = $o_storage->getVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type))) { 
+					$va_context = array();
+				}
+				$this->opa_context = array_merge($va_semi, $va_context); 
 			}
 			return $this->opa_context;
 		}
@@ -604,8 +622,26 @@
 			} else {
 				$va_context = $pa_context;
 			}
+			
+			$va_semi_context = array(
+				'history' => $va_context['history'],
+				'page' => $va_context['page'],
+				'result_list' => $va_context['result_list']
+			);
+			unset($va_context['history']);
+			unset($va_context['page']);
+			unset($va_context['result_list']);
+			
 			$o_storage = $this->getPersistentStorageInstance();
 			$o_storage->setVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type, $va_context);
+			
+			
+			$o_semi_storage = $this->getSemiPersistentStorageInstance();
+			if (!is_array($va_existing_semi_context = $o_semi_storage->getVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type))) {
+				$va_existing_semi_context = array();
+			}
+			$va_semi_context = array_merge($va_existing_semi_context, $va_semi_context);
+			$o_semi_storage->setVar('result_context_'.$this->ops_table_name.'_'.$vs_find_type, $va_semi_context);
 			
 			return true;
 		}
@@ -766,6 +802,27 @@
  				$o_storage = $po_request->getSession();
  			}
  			return $o_storage;
+		}
+		# ------------------------------------------------------------------
+		/**
+		 * Returns object to use for semi-persistent (session) storage of search/browse parameters via setVar() and getVar()
+		 * This is always a Session object
+		 *
+		 * @return Session The storage object
+		 */
+		protected function getSemiPersistentStorageInstance() {
+			return ResultContext::_semipersistentStorageInstance($this->opo_request);
+		}
+		# ------------------------------------------------------------------
+		/**
+		 * Returns semi-persistent storage object supporting getVar()/setVar() interface
+		 * This is always a Session object
+		 *
+		 * @param RequestHTTP $po_request The current request
+		 * @return Session The storage object
+		 */
+		static function _semipersistentStorageInstance($po_request) {
+			return $po_request->getSession();
 		}
 		# ------------------------------------------------------------------
 		/**

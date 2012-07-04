@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -42,34 +42,43 @@ class GeoNamesController extends ActionController {
 
 		$ps_query = $this->request->getParameter('q', pString);
 		$ps_type = $this->request->getParameter('type', pString);
+		$vo_conf = Configuration::load();
+		$vs_user = trim($vo_conf->get("geonames_user"));
+		
 		$va_items = array();
 		if (unicode_strlen($ps_query) >= 3) {
-			$vo_ctx = stream_context_create(array(
-					'http' => array(
-					'timeout' => 5
-				)
-			));
-			$vs_base = "http://ws.geonames.org/search";
+			$vs_base = "http://api.geonames.org/search";
 			$t_locale = new ca_locales($g_ui_locale_id);
 			$vs_lang = $t_locale->get("language");
 			$va_params = array(
 				"q" => $ps_query,
 				"lang" => $vs_lang,
-				'style' => 'full'
+				'style' => 'full',
+				'username' => $vs_user
 			);
 
 			foreach ($va_params as $vs_key => $vs_value) {
-			    $vs_query_string .= "$vs_key=" . urlencode($vs_value) . "&";
+				$vs_query_string .= "$vs_key=" . urlencode($vs_value) . "&";
 			}
 
 			try {
-				$vs_result = @file_get_contents("$vs_base?$vs_query_string",0,$vo_ctx);
-				if(strlen($vs_result)>0){
-					$vo_xml = new SimpleXMLElement($vs_result);
-					//var_dump($vo_result);
+				$vo_xml = new SimpleXMLElement($x= @file_get_contents("{$vs_base}?$vs_query_string"));
+				
+				$va_attr = $vo_xml->status ? $vo_xml->status->attributes() : null;
+				if ($va_attr && isset($va_attr['value']) && ((int)$va_attr['value'] > 0)) { 
+					$va_items[0] = array(
+						'displayname' => _t('Connection to GeoNames with username "%1" was rejected with the message "%2". Check your configuration and make sure your GeoNames.org account is enabled for web services.', $vs_user, $va_attr['message']),
+						'country' => '',
+						'continent' => '',
+						'fcl' => '',
+						'lat' => '',
+						'lng' => '',
+						'idno' => ''
+					);
+				} else {
 					foreach($vo_xml->children() as $vo_child){
 						if($vo_child->getName()!="totalResultsCount"){
-							$va_items[$vo_child->geonameId.""] = array(
+							$va_items[(string)$vo_child->geonameId] = array(
 								'displayname' => $vo_child->name,
 								'country' => $vo_child->countryName ? $vo_child->countryName : null,
 								'continent' => $vo_child->continentCode ? $vo_child->continentCode : null,
@@ -80,16 +89,6 @@ class GeoNamesController extends ActionController {
 							);
 						}
 					}
-				} else {
-					$va_items[0] = array(
-						'displayname' => _t('Could not connect to GeoNames'),
-						'country' => '',
-						'continent' => '',
-						'fcl' => '',
-						'lat' => '',
-						'lng' => '',
-						'idno' => ''
-					);
 				}
 			} catch (Exception $e) {
 				$va_items[0] = array(

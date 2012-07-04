@@ -99,7 +99,8 @@
 		 */
 		public function updateRelationshipTypes() {
 			$t_locale = new ca_locales();
-			$pn_locale_id = $t_locale->loadLocaleByCode('en_US');		// default locale_id
+			$o_config = Configuration::load();
+			$pn_locale_id = $t_locale->loadLocaleByCode($o_config->get('locale_default'));		// default locale_id
 			
 			$o_db = new Db();
 			$o_dm = Datamodel::load();

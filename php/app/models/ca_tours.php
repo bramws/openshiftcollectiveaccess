@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -270,7 +270,8 @@ class ca_tours extends BundlableLabelableBaseModelWithAttributes {
 				$qr_res = $o_db->query("
 					SELECT *
 					FROM ca_tour_stops
-					WHERE tour_id = ?
+					WHERE 
+						tour_id = ? AND deleted = 0
 				", (int)$this->getPrimaryKey());
 				
 				$va_stops = array();
@@ -342,7 +343,7 @@ class ca_tours extends BundlableLabelableBaseModelWithAttributes {
 			FROM ca_tour_stops ts
 			INNER JOIN ca_tour_stop_labels AS tsl ON ts.stop_id = tsl.stop_id
 			WHERE
-				(ts.tour_id = ?)
+				(ts.tour_id = ?) AND (ts.deleted = 0)
 			ORDER BY 
 				ts.rank, ts.stop_id
 		", (int)$this->getPrimaryKey());
@@ -388,7 +389,7 @@ class ca_tours extends BundlableLabelableBaseModelWithAttributes {
 			SELECT tsl.stop_id, tsl.rank
 			FROM ca_tour_stops tsl
 			WHERE
-				tsl.tour_id = ?
+				tsl.tour_id = ? AND tsl.deleted = 0
 			ORDER BY 
 				tsl.rank ASC
 		", (int)$vn_tour_id);

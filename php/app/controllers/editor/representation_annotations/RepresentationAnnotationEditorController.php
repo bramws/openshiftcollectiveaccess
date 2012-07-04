@@ -55,8 +55,7 @@
 				$this->view->setVar('screen', $this->request->getActionExtra());	// name of screen
  				
 				// find object editor screen with media bundle
-				$t_ui = new ca_editor_uis();
-				$t_ui->loadDefaultUI('ca_object_representations', $this->request);
+				$t_ui = ca_editor_uis::loadDefaultUI('ca_object_representations', $this->request, $t_rep->getTypeID());
 				$this->view->setVar('representation_editor_screen', $t_ui->getScreenWithBundle('ca_representation_annotations', $this->request));
  			}
  			

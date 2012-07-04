@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2000-2010 Whirl-i-Gig
+ * Copyright 2000-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -65,6 +65,7 @@ class Session {
 		$this->lifetime = $o_config->get("session_lifetime");
 		
 		session_name($this->name);
+		ini_set("session.gc_maxlifetime", $this->lifetime); 
 		session_set_cookie_params($this->lifetime, '/', $this->domain);
 		session_start();
 	}

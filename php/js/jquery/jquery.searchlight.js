@@ -21,7 +21,6 @@
             actionFunction: null,
             align: 'left',
             width: 'auto',
-            showIcons: true,
             showEffect: 'fade', // TODO
             hideEffect: 'fade'  // TODO
         }, options);
@@ -48,12 +47,12 @@
         var results = $(document.createElement('div'));
         results.attr('className', 'searchlight-results-wrapper');
         results.css({
-            height: '100%'
+           // height: '100%'
         });
 
         if ($.browser.msie && parseFloat($.browser.version) <= 7) {
             results.css({
-                width: '1%'
+                width: '100%'
             });
         }
 
@@ -89,21 +88,21 @@
             searchlight.hide();
         });
 
-        input.bind('keydown.searchlight', {searchlight: this}, function(evt) {
-            var searchlight = evt.data.searchlight;
-            if (evt.which == 38 && searchlight._selectedRow > 0) {
-                // Up arrow
-                searchlight.selectRow(searchlight._selectedRow-1);
-            } else if (evt.which == 40 && searchlight._selectedRow < searchlight._rowCount -1) {
-                // Down arrow
-                searchlight.selectRow(searchlight._selectedRow+1);
-            } else if (evt.which == 13 && searchlight._selectedRow > -1) {
-                searchlight.activateRow(searchlight._selectedRow);
-            }
-            if (evt.which == 13 || evt.which == 38 || evt.which == 40) {
-                evt.preventDefault();
-            }
-        });
+        // input.bind('keydown.searchlight', {searchlight: this}, function(evt) {
+//             var searchlight = evt.data.searchlight;
+//             if (evt.which == 38 && searchlight._selectedRow > 0) {
+//                 // Up arrow
+//                 searchlight.selectRow(searchlight._selectedRow-1);
+//             } else if (evt.which == 40 && searchlight._selectedRow < searchlight._rowCount -1) {
+//                 // Down arrow
+//                 searchlight.selectRow(searchlight._selectedRow+1);
+//             } else if (evt.which == 13 && searchlight._selectedRow > -1) {
+//                 searchlight.activateRow(searchlight._selectedRow);
+//             }
+//             if (evt.which == 13 || evt.which == 38 || evt.which == 40) {
+//                 evt.preventDefault();
+//             }
+//         });
         input.bind('keyup.searchlight', {searchlight: this}, function(evt) {
             var searchlight = evt.data.searchlight;
             if (searchlight._searchDelayTimer) {
@@ -162,67 +161,44 @@
         this._categoryCount = 0;
         this._rowCount = 0;
         this._selectedRow = -1;
-        this._resultsContainer.html('<table class="searchlight-results"></table>');
+        this._resultsContainer.html('<div class="searchlight-results"></div>');
     };
     SearchLight.prototype.addResultCategory = function(name, results) {
         var first = true;
         for (var i = 0; i < results.length; i++) {
             var r = results[i];
 
-            var tr = document.createElement('tr');
-            $(tr).attr('className', 'searchlight-not-selected');
+            var item = document.createElement('div');
+            $(item).attr('className', 'searchlight-not-selected');
 
-            var th = document.createElement('th');
-            var td = document.createElement('td');
-            $(th).html('<span class="searchlight-header-text"></span>');
-            $(td).html('<span class="searchlight-result-text"></span>');
-            var th_d = th.firstChild;
-            var td_d = td.firstChild;
+            item.className = "searchlight-item";
 
             if (first) {
-                $(th_d).text(name);
+            	var categoryHeading = document.createElement('div');
+            	categoryHeading.className = "searchlight-header";
+                $(categoryHeading).text(name);
+                this._resultsContainer.children('div').append(categoryHeading);
                 first = false;
             }
 
-            if (this._settings.showIcons) {
-                var img = document.createElement('img');
-                img.className = 'searchlight-result-icon';
-                img.style.width = '16px';
-                img.style.height = '16px';
-                // If icon, then use that otherwise use blank
-                img.src = r[2] ? r[2] : 'icons/blank.gif';
-                $(td_d).append(img);
-            }
 
-            $(td_d).append(r[1]);
+            $(item).append(r[1]);
 
-            $(tr).append(th);
-            $(tr).append(td);
-
-            $(tr).bind('mousemove', {searchlight: this}, function(evt) {
+            $(item).bind('mousemove', {searchlight: this}, function(evt) {
                 var searchlight = evt.data.searchlight;
                 searchlight.selectRow(this._rowId);
             });
-            $(tr).bind('click', {searchlight: this}, function(evt) {
+            $(item).bind('click', {searchlight: this}, function(evt) {
                 var searchlight = evt.data.searchlight;
                 searchlight.activateRow(this._rowId);
             });
 
-            tr._rowId = this._rowCount;
-            tr._actionValue = r[0];
-            this._resultsContainer.children('table').append(tr);
+            item._rowId = this._rowCount;
+            item._actionValue = r[0];
+            this._resultsContainer.children('div').append(item);
             this._rowCount++;
         }
 
-        // Add spacer if this isn't the first category
-        var tr = document.createElement('tr');
-        var th = document.createElement('th');
-        var td = document.createElement('td');
-        tr.className = 'searchlight-spacer-row';
-
-        $(tr).append(th);
-        $(tr).append(td);
-        this._resultsContainer.children('table').append(tr);
 
         this._categoryCount++;
     };
@@ -230,7 +206,8 @@
     SearchLight.prototype.selectRow = function(id) {
         this._selectedRow = id;
 
-        this._resultsContainer.find('tr:not(.searchlight-spacer-row)').each(function(i) {
+        	
+        this._resultsContainer.find('div.searchlight-item').each(function(i) {
             if (this._rowId == id) {
                 if (!$(this).hasClass('searchlight-selected')) {
                     $(this).removeClass('searchlight-not-selected');
@@ -246,7 +223,7 @@
     };
 
     SearchLight.prototype.activateRow = function(id) {
-        this.resultAction(this._resultsContainer.find('tr:not(.searchlight-spacer-row):eq('+ id +')')[0]._actionValue);
+        this.resultAction(this._resultsContainer.find('div.searchlight-item:eq('+ id +')')[0]._actionValue);
     }
 
     SearchLight.prototype.defaultResultAction = function(val) {

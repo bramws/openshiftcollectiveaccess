@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2004-2011 Whirl-i-Gig
+ * Copyright 2004-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -75,7 +75,8 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 			"application/x-shockwave-flash" 	=> "swf",
 			"video/mpeg" 						=> "mpeg",
 			"video/mp4" 						=> "m4v",
-			"video/ogg"							=> "ogg"
+			"video/ogg"							=> "ogg",
+			"video/x-matroska"					=> "webm"
 		),
 
 		"EXPORT" => array(
@@ -89,7 +90,8 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 			"audio/mpeg"						=> "mp3",
 			"image/jpeg"						=> "jpg",
 			"video/mp4" 						=> "m4v",
-			"video/ogg"							=> "ogg"
+			"video/ogg"							=> "ogg",
+			"video/x-matroska"					=> "webm"
 		),
 
 		"TRANSFORMATIONS" => array(
@@ -150,7 +152,8 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 		"audio/mpeg"						=> "MP3 audio",
 		"image/jpeg"						=> "JPEG",
 		"video/mp4" 						=> "MPEG-4",
-		"video/ogg"							=> "Ogg Theora"
+		"video/ogg"							=> "Ogg Theora",
+		"video/x-matroska"					=> "WebM"
 	);
 
 	# ------------------------------------------------
@@ -654,28 +657,18 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 					if (($vn_start_secs = $this->properties["duration"]/8) > 120) { 
 						$vn_start_secs = 120;		// always take a frame from the first two minutes to ensure performance (ffmpeg gets slow if it has to seek far into a movie to extract a frame)
 					}
-					exec(escapeshellcmd($this->ops_path_to_ffmpeg." -ss ".($vn_start_secs)." -i \"".$this->filepath."\" -f mjpeg -t 0.001 -y \"".$filepath.".".$ext."\""), $va_output, $vn_return);
+					
+					
+					exec(escapeshellcmd($this->ops_path_to_ffmpeg." -i \"".$this->filepath."\" -f image2 -ss ".($vn_start_secs)." -t 0.04 -s {$vn_preview_width}x{$vn_preview_height} -y \"".$filepath.".".$ext."\""), $va_output, $vn_return);
 					if (($vn_return < 0) || ($vn_return > 1) || (!@filesize($filepath.".".$ext))) {
 						@unlink($filepath.".".$ext);
 						// try again, with -ss 1 (seems to work consistently on some files where other -ss values won't work)
-						exec(escapeshellcmd($this->ops_path_to_ffmpeg." -ss 1 -i \"".$this->filepath."\" -f mjpeg -t 0.001 -y \"".$filepath.".".$ext."\""), $va_output, $vn_return);
+						exec(escapeshellcmd($this->ops_path_to_ffmpeg." -i \"".$this->filepath."\" -f image2 -ss ".($vn_start_secs)." -t 1 -s {$vn_preview_width}x{$vn_preview_height} -y \"".$filepath.".".$ext."\""), $va_output, $vn_return);
 					}
 
 					if (($vn_return < 0) || ($vn_return > 1) || (!@filesize($filepath.".".$ext))) {
 						@unlink($filepath.".".$ext);
 						// don't throw error as ffmpeg cannot generate frame still from all file
-					}  else {
-						// resize image to desired dimensions
-						$o_media = new Media();
-						$o_media->read($filepath.".".$ext);
-						$o_media->transform('SCALE', array('width' => $vn_preview_width, 'height' => $vn_preview_height, 'mode' => 'bounding_box', 'antialiasing' => 0.5));
-						
-						$o_media->write($filepath."_tmp", 'image/jpeg', array());
-						if(!$o_media->numErrors()) {
-							rename($filepath."_tmp.".$ext, $filepath.".".$ext);
-						} else {
-							@unlink($filepath."_tmp.".$ext);
-						}
 					}
 				}
 
@@ -996,6 +989,31 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 		return $va_files;
 	}
 	# ------------------------------------------------
+	/** 
+	 *
+	 */
+	public function writeClip($ps_filepath, $ps_start, $ps_end, $pa_options=null) {
+		$o_tc = new TimecodeParser();
+		
+		$vn_start = $vn_end = null;
+		if ($o_tc->parse($ps_start)) { $vn_start = $o_tc->getSeconds(); }
+		if ($o_tc->parse($ps_end)) { $vn_end = $o_tc->getSeconds(); }
+		
+		if (!$vn_start || !$vn_end) { return null; }
+		if ($vn_start >= $vn_end) { return null; }
+		
+		$vn_duration = $vn_end - $vn_start;
+		
+		exec(escapeshellcmd($this->ops_path_to_ffmpeg." -i '".$this->filepath."' -f mp4 -vcodec libx264 -acodec mp3 -t {$vn_duration}  -y -ss {$vn_start} '{$ps_filepath}'"), $va_output, $vn_return);
+		if ($vn_return != 0) {
+			@unlink($filepath.".".$ext);
+			$this->postError(1610, _t("Error extracting clip from %1 to %2: %3", $ps_start, $ps_end, join("; ", $va_output)), "WLPlugVideo->writeClip()");
+			return false;
+		}
+		
+		return true;
+	}
+	# ------------------------------------------------
 	public function getOutputFormats() {
 		return $this->info["EXPORT"];
 	}
@@ -1256,48 +1274,27 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 					$vs_file_path = preg_replace('!\.'.$vs_ext.'$!', '', $vs_file_path);
 					
 					
-					$vs_config = 'config={
-						"playlist":[
-							{"url": "'.$va_volume_info['rtmpContentPath'].$vs_file_path.'", "provider": "streaming_server"}
-						],
-						"plugins" : {
-							"streaming_server" : {
-								"url": "flowplayer.rtmp-3.2.3.swf",
-								"netConnectionUrl": "'.((isset($va_volume_info['accessProtocol']) ? $va_volume_info['accessProtocol'] : $va_volume_info['protocol']))."://".((isset($va_volume_info['accessHostname']) ? $va_volume_info['accessHostname'] : $va_volume_info['hostname'])).$va_volume_info['rtmpMediaPrefix'].'"
-							}
-						}
-					}';
+					$vs_config = '{ "playlist":[ {"url": "'.$va_volume_info['rtmpContentPath'].$vs_file_path.'", "provider": "streaming_server"} ], "plugins" : { "streaming_server" : { "url": "flowplayer.rtmp-3.2.3.swf", "netConnectionUrl": "'.((isset($va_volume_info['accessProtocol']) ? $va_volume_info['accessProtocol'] : $va_volume_info['protocol'])).'://'.((isset($va_volume_info['accessHostname']) ? $va_volume_info['accessHostname'] : $va_volume_info['hostname'])).$va_volume_info['rtmpMediaPrefix'].'" } } }';
 				}
 ?>
- 				<object width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>" type="application/x-shockwave-flash"
-					data="<?php print $viewer_base_url; ?>/viewers/apps/flowplayer-3.2.5.swf">
-					<param name="movie" value="<?php print $viewer_base_url; ?>/viewers/apps/flowplayer-3.2.5.swf" />
-					<param name="allowfullscreen" value="true" />
-					<param name="bgcolor" value="#000000" />
-					<param name="flashvars" value='<?php print $vs_config; ?>' />
-					<img src="<?php print $vs_poster_frame_url; ?>" width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>" alt="<?php print _t('Preview image for video'); ?>" title="<?php print _t('Your system cannot play video. Sorry. :-('); ?>" />
-				  </object>
+				<div id="<?php print $vs_id; ?>" style="width: <?php print $vn_width; ?>px; height: <?php print $vn_height; ?>px;"> </div>
+				<script type="text/javascript">
+					flowplayer("<?php print $vs_id; ?>", "<?php print $viewer_base_url; ?>/viewers/apps/flowplayer-3.2.7.swf", <?php print $vs_config; ?>);
+				</script>
 <?php
 			} else {
 ?>
 			<!-- Begin VideoJS -->
-			<div class="video-js-box" style="width: <?php print $vn_width; ?>px; height: <?php print $vn_height; ?>px;">
-				<video id="<?php print $vs_id; ?>" class="video-js" width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>" preload poster="<?php print $vs_poster_frame_url; ?>" controls>
-				  <source src="<?php print $ps_url; ?>" type='video/mp4'>
-				 <object class="vjs-flash-fallback" width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>" type="application/x-shockwave-flash"
-					data="<?php print $viewer_base_url; ?>/viewers/apps/flowplayer-3.2.5.swf">
-					<param name="movie" value="<?php print $viewer_base_url; ?>/viewers/apps/flowplayer-3.2.5.swf" />
-					<param name="allowfullscreen" value="true" />
-					<param name="bgcolor" value="#000000" />
-					<param name="flashvars" value='<?php print $vs_config; ?>' />
-					<img src="<?php print $vs_poster_frame_url; ?>" width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>" alt="<?php print _t('Preview image for video'); ?>" title="<?php print _t('Your system cannot play video. Sorry. :-('); ?>" />
-				  </object>
+			 <video id="<?php print $vs_id; ?>" class="video-js vjs-default-skin"  
+				  controls preload="auto" width="<?php print $vn_width; ?>" height="<?php print $vn_height; ?>"  
+				  poster="<?php print $vs_poster_frame_url; ?>"  
+				  data-setup='{}'>  
+				 <source src="<?php print $ps_url; ?>" type='video/mp4' />  
 				</video>
-			</div>
 			<script type="text/javascript">
-				VideoJS.DOMReady(function(){
-				  var myPlayer = VideoJS.setup("<?php print $vs_id; ?>");
-				});
+				_V_.players["<?php print $vs_id; ?>"] = undefined;	// make sure VideoJS doesn't think it has already loaded the viewer
+				jQuery("#<?php print $vs_id; ?>").attr('width', jQuery('#<?php print $vs_id; ?>:parent').width()).attr('height', jQuery('#<?php print $vs_id; ?>:parent').height());
+				_V_("<?php print $vs_id; ?>", {}, function() {});
 			</script>
 			<!-- End VideoJS -->
 <?php
@@ -1310,6 +1307,16 @@ class WLPlugMediaVideo Extends WLPlug Implements IWLPlugMedia {
 			
 			# ------------------------------------------------
 			case 'video/ogg':
+				
+				$vs_id = 							$pa_options["id"] ? $pa_options["id"] : "mp4_player";
+				$vs_poster_frame_url =	$pa_options["poster_frame_url"];
+				$vn_width =						$pa_options["viewer_width"] ? $pa_options["viewer_width"] : $pa_properties["width"];
+				$vn_height =					$pa_options["viewer_height"] ? $pa_options["viewer_height"] : $pa_properties["height"];
+				
+				return "<video id='{$vs_id}' src='{$ps_url}' width='{$vn_width}' height='{$vn_height}' controls='1'></video>";
+				break;
+			# ------------------------------------------------
+			case 'video/x-matroska':
 				
 				$vs_id = 							$pa_options["id"] ? $pa_options["id"] : "mp4_player";
 				$vs_poster_frame_url =	$pa_options["poster_frame_url"];

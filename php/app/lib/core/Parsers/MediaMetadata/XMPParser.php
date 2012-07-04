@@ -186,6 +186,11 @@ class XMPParser extends BaseMediaMetadataParser {
 				'namespace' => 'Iptc4xmpCore',
 				'tag' => 'CiUrlWork',
 				'description' => _t('Creator website')
+			),
+			'DescriptionWriter' => array(
+				'namespace' => 'photoshop',
+				'tag' => 'CaptionWriter',
+				'description' => _t('Description writer')
 			)
 		);
 		parent::__construct();
@@ -200,22 +205,76 @@ class XMPParser extends BaseMediaMetadataParser {
 	 */
 	public function parse($ps_filepath) {
 		$va_jpeg_header_data = $this->getJPEGHeaderData($ps_filepath);
+		if (!is_array($va_jpeg_header_data)) { $va_jpeg_header_data = array(); }
+		$this->ops_filepath = $ps_filepath;
+		$this->opa_header_data = $va_jpeg_header_data;
+		
+		if (!sizeof($va_jpeg_header_data)) {
+			$this->opo_old_metadata = null;
+		} else {
+			$this->opo_old_metadata = simplexml_load_string($this->getXMPData($va_jpeg_header_data));
+		}
+		if (is_object($this->opo_old_metadata)) {
+			$va_namespaces = $this->opo_old_metadata->getNameSpaces(true);
+			$this->opo_metadata = $this->opo_old_metadata;
+			
+			$va_data = array();
+			foreach($this->opo_old_metadata->children($va_namespaces['rdf']) as $vn_i => $o_rdf) {
+				foreach($o_rdf->children($va_namespaces['rdf']) as $vn_i => $o_rdf_desc) {
+					foreach($va_namespaces as $vs_namespace => $vs_namespace_url) {
+						foreach($o_rdf_desc->children($vs_namespace_url) as $vs_tag => $o_item) {
+							$va_extracted_values = $o_item->xpath(".//rdf:li");
+							$va_values = array();
+							foreach($va_extracted_values as $o_value_list) {
+								$va_values[] = (string)$o_value_list;
+							}
+							$va_data["{$vs_namespace}:{$vs_tag}"] = $va_values;
+						}
+					}
+				}
+			}
+			
+			foreach($this->opa_fields as $vs_field => $va_field_info) {
+				$vs_namespace_and_tag = $va_field_info['namespace'].":".$va_field_info['tag'];
+				if (isset($va_data[$vs_namespace_and_tag])) {
+					$this->opa_metadata[$vs_field] = $va_data[$vs_namespace_and_tag];
+				}
+			}
+			
+		
+			$this->opo_metadata->registerXPathNamespace("x", "adobe:ns:meta/");
+			$this->opo_metadata->registerXPathNamespace("Iptc4xmpCore", "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/");
+			$this->opo_metadata->registerXPathNamespace("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+			
+			$this->o_rdf = $this->opo_metadata ->xpath('//rdf:RDF');
+			$this->o_rdf_desc = $this->opo_metadata ->xpath('//rdf:RDF/rdf:Description');
+			$this->o_creator = null;
+			$this->opa_isset = array();
+		} else {
+			$this->initMetadata();
+		}
+		return true;
+	}
+	# -------------------------------------------------------
+	/** 
+	 * Clears any parsed metadata for the currently parsed file
+	 */
+	public function initMetadata() {
 		$vs_xmp_data = '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
 		<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/" xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmpRights="http://ns.adobe.com/xap/1.0/rights/" xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/" xmp:CreatorTool="CollectiveAccess" xmp:ModifyDate="'.date("c").'" xmp:CreateDate="'.date("c").'" xmp:MetadataDate="'.date("c").'"> </rdf:Description></rdf:RDF></x:xmpmeta>';
 
-		$this->ops_filepath = $ps_filepath;
-		$this->opa_header_data = $va_jpeg_header_data;
-		$this->opo_old_metadata = simplexml_load_string($this->getXMPData($va_jpeg_header_data));
 		$this->opo_metadata = simplexml_load_string($vs_xmp_data);
+		$this->opa_metadata = array();
 		
-		$this->opo_metadata ->registerXPathNamespace("Iptc4xmpCore", "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/");
-		$this->opo_metadata ->registerXPathNamespace("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+		
+		$this->opo_metadata->registerXPathNamespace("x", "adobe:ns:meta/");
+		$this->opo_metadata->registerXPathNamespace("Iptc4xmpCore", "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/");
+		$this->opo_metadata->registerXPathNamespace("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
 		
 		$this->o_rdf = $this->opo_metadata ->xpath('//rdf:RDF');
 		$this->o_rdf_desc = $this->opo_metadata ->xpath('//rdf:RDF/rdf:Description');
 		$this->o_creator = null;
 		$this->opa_isset = array();
-		return true;
 	}
 	# -------------------------------------------------------
 	/**
@@ -262,6 +321,9 @@ class XMPParser extends BaseMediaMetadataParser {
 				break;
 			case 'DateCreated':
 				$this->o_rdf_desc[0]->addAttribute('photoshop:DateCreated', $ps_value, "http://ns.adobe.com/photoshop/1.0/");
+				break;
+			case 'DescriptionWriter':
+				$this->o_rdf_desc[0]->addAttribute('photoshop:CaptionWriter', $ps_value, "http://ns.adobe.com/photoshop/1.0/");
 				break;
 			case 'RightsURL':
 				$this->o_rdf_desc[0]->addAttribute('xmpRights:WebStatement', $ps_value, "http://ns.adobe.com/xap/1.0/rights/");
@@ -345,6 +407,36 @@ class XMPParser extends BaseMediaMetadataParser {
 				break;
 		}
 		return true;
+	}
+	# -------------------------------------------------------
+	/**
+	 * Gets value of one of the fields listed in XMPParser::$opa_fields above. 
+	 *
+	 * @param string $ps_field The name of a field, as listed in XMPParser::$opa_fields
+	 * @param array $pa_options An array of options. May include:	
+	 *		returnAsArray = if true an array of values is returned. Default is false, in which case a string of values concatenated with a delimiter is returned.
+	 *		delimiter = text to insert between returned values when those values are returned as a string. Default is ";" (a single semicolon)
+	 * @return mixed Value or null if no value is set or field is invalid. Value is a string unless returnAsArray setting is passed, in which case an array is returned.
+	 */
+	public function get($ps_field, $pa_options=null) {
+		if(!isset($this->opa_fields[$ps_field])) { return null; }
+		if(isset($this->opa_metadata[$ps_field])) {
+			if (isset($pa_options['returnAsArray']) && $pa_options['returnAsArray']) {
+				return $this->opa_metadata[$ps_field];
+			}
+			$vs_delimiter = isset($pa_options['delimiter']) ? $pa_options['delimiter'] : ";";
+			return join($vs_delimiter, $this->opa_metadata[$ps_field]);
+		}
+		return null;
+	}
+	# -------------------------------------------------------
+	/**
+	 * Get all extracted XMP metadata as an array. Keys of arrays are fields listed in XMPParser::$opa_fields above. 
+	 *
+	 * @return array Extracted metadata values
+	 */
+	public function getMetadata() {
+		return $this->opa_metadata;
 	}
 	# -------------------------------------------------------
 	# Utilities
@@ -490,7 +582,7 @@ class XMPParser extends BaseMediaMetadataParser {
                 if ( strlen($segment['SegData']) > 0xfffd)
                 {
                         // Could't open the file - exit
-                        echo "<p>A Header is too large to fit in JPEG segment</p>\n";
+                        //echo "<p>A Header is too large to fit in JPEG segment</p>\n";
                         return false;
                 }
         }
@@ -503,7 +595,7 @@ class XMPParser extends BaseMediaMetadataParser {
         // Check if the file opened successfully
         if ( ! $newfilehnd ) {
                 // Could't open the file - exit
-                echo "<p>Could not open file $ps_new_filename</p>\n";
+               // echo "<p>Could not open file $ps_new_filename</p>\n";
                 return false;
         }
 

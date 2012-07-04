@@ -180,7 +180,7 @@
 				require_once($vs_app_plugin_dir.'/'.$vs_plugin_dir.'/'.$vs_plugin_dir.'Plugin.php');
 				$vs_plugin_classname = $vs_plugin_dir.'Plugin';
 			
-				$va_actions = array_merge($va_actions, $vs_plugin_classname::getRoleActionList());
+				$va_actions = array_merge($va_actions, call_user_func(array($vs_plugin_classname, 'getRoleActionList')));
 			}
 			return $va_actions;
 		}

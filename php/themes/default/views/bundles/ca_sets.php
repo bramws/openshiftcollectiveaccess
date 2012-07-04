@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -26,17 +26,20 @@
  * ----------------------------------------------------------------------
  */
  
-	$vs_id_prefix 					= $this->getVar('placement_code').$this->getVar('id_prefix');
+	$vs_id_prefix 				= $this->getVar('placement_code').$this->getVar('id_prefix');
 	$vn_table_num 				= $this->getVar('table_num');
-	$t_set 								= $this->getVar('t_set');
-	$va_set_ids 						= $this->getVar('set_ids');
+	$t_set 						= $this->getVar('t_set');
+	$va_set_ids 				= $this->getVar('set_ids');
 	$va_available_set_ids 		= $this->getVar('available_set_ids');
-	$va_sets 							= $this->getVar('sets');
+	$va_sets 					= $this->getVar('sets');
 	
-	$va_set_options 				= array_flip($this->getVar('set_options'));
+	$va_set_options 			= array_flip($this->getVar('set_options'));
 	natcasesort($va_set_options);
 	
-	$va_initial_values 				= $this->getVar('initial_values');
+	$va_settings 				= $this->getVar('settings');
+	$va_initial_values 			= $this->getVar('initial_values');
+	
+	$vb_read_only		=	(isset($va_settings['readonly']) && $va_settings['readonly']);
 
 	$va_errors = array();
 ?>
@@ -93,6 +96,7 @@
 		templateClassName: 'caItemTemplate',
 		itemListClassName: 'caItemList',
 		minRepeats: 0,
-		maxRepeats: <?php print sizeof($va_sets); ?>
+		maxRepeats: <?php print sizeof($va_sets); ?>,
+		readonly: <?php print $vb_read_only ? "true" : "false"; ?>
 	});
 </script>

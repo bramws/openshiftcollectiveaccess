@@ -128,8 +128,7 @@
  		
  			if ($vn_representation_id) {
 				// find object editor screen with media bundle
-				$t_ui = new ca_editor_uis();
-				$t_ui->loadDefaultUI('ca_objects', $this->request);
+				$t_ui = ca_editor_uis::loadDefaultUI('ca_objects', $this->request);
 				$this->view->setVar('object_editor_screen', $t_ui->getScreenWithBundle('ca_object_representations', $this->request));
  			}
  			

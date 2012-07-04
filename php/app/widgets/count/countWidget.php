@@ -31,6 +31,7 @@
 	class countWidget extends BaseWidget implements IWidget {
 		# -------------------------------------------------------
 		private $opo_config;
+		private $opa_tables;
 		
 		static $s_widget_settings = array(	);
 		
@@ -41,6 +42,16 @@
 			parent::__construct($ps_widget_path, $pa_settings);
 			
 			$this->opo_config = Configuration::load($ps_widget_path.'/conf/countWidget.conf');
+			
+			$this->opa_tables = array('ca_objects' => 0, 'ca_object_lots' => 0, 'ca_entities' => 0, 'ca_places' => 0, 'ca_occurrences' => 0, 'ca_collections' => 0, 'ca_storage_locations' => 0, 'ca_object_representations' => 0, 'ca_loans' => 0, 'ca_movements' => 0);
+			
+			$o_config = Configuration::load();
+			foreach($this->opa_tables as $vs_table => $vn_c) {
+				if ((bool)$o_config->get($vs_table.'_disable')) {
+					if (($vs_table == 'ca_object_representations') && !(bool)$o_config->get('ca_objects_disable')) { continue; }
+					unset(BaseWidget::$s_widget_settings['countWidget']['show_'.$vs_table]);
+				}
+			}
 		}
 		# -------------------------------------------------------
 		/**
@@ -63,11 +74,19 @@
 		# -------------------------------------------------------
 		public function renderWidget($ps_widget_id, $pa_settings) {
 			parent::renderWidget($ps_widget_id, $pa_settings);
-			
-			$va_tables = array('ca_objects' => 0, 'ca_object_lots' => 0, 'ca_entities' => 0, 'ca_places' => 0, 'ca_occurrences' => 0, 'ca_collections' => 0, 'ca_storage_locations' => 0, 'ca_object_representations' => 0, 'ca_loans' => 0, 'ca_movements' => 0);
+	
 			$va_instances = array();
+			$va_tables = $this->opa_tables;
 			foreach(array_keys($va_tables) as $vs_table) {
-				if (!isset($pa_settings['show_'.$vs_table]) || !$pa_settings['show_'.$vs_table]) { 
+				if (
+					!isset($pa_settings['show_'.$vs_table]) || 
+					!$pa_settings['show_'.$vs_table] || 
+					(
+						(bool)$this->getRequest()->config->get($vs_table.'_disable')
+						&&
+						(!(($vs_table == 'ca_object_representations') && !(bool)$this->getRequest()->config->get('ca_objects_disable')))
+					)
+				) { 
 					unset($va_tables[$vs_table]);
 					continue; 
 				}
@@ -76,6 +95,7 @@
 				$va_instances[$vs_table] = $t_instance = new $vs_table;
 				$va_tables[$vs_table] = (int)$t_instance->getCount();
 			}
+			
 			$this->opo_view->setVar('counts', $va_tables);
 			$this->opo_view->setVar('instances', $va_instances);
 			$this->opo_view->setVar('settings', $pa_settings);

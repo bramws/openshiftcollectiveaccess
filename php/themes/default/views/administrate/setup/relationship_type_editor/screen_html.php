@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -25,9 +25,10 @@
  *
  * ----------------------------------------------------------------------
  */
- 	$t_item = $this->getVar('t_subject');
-	$vn_type_id = $this->getVar('subject_id');
+ 	$t_item 			= $this->getVar('t_subject');
+	$vn_type_id 		= $this->getVar('subject_id');
 	$vn_above_id 		= $this->getVar('above_id');
+	$vs_context_id 		= $this->getVar('_context_id');	// used to restrict idno uniqueness checking to within the current list
 	
 	$t_ui = $this->getVar('t_ui');
 	
@@ -50,6 +51,7 @@
 			
 			print $vs_control_box;
 ?>
+			<input type='hidden' name='_context_id' value='<?php print $this->getVar('_context_id'); ?>'/>
 			<input type='hidden' name='type_id' value='<?php print $vn_type_id; ?>'/>
 			<input type='hidden' name='above_id' value='<?php print $vn_above_id; ?>'/>
 		</form>

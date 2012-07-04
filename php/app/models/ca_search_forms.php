@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -822,9 +822,12 @@ class ca_search_forms extends BundlableLabelableBaseModelWithAttributes {
 						// is it an attribute?
 						if (in_array($vs_field, $va_element_codes)) {
 							$t_element = $this->_getElementInstance($vs_field);
+							if(!$t_element) { continue; }
 							if (in_array($t_element->get('datatype'), array(15, 16))) { continue; } 		// skip file and media attributes - never searchable
 							if (!$t_element->getSetting('canBeUsedInSearchForm')) { continue; }
 				
+							if (caGetBundleAccessLevel($vs_primary_table, $vs_field) == __CA_BUNDLE_ACCESS_NONE__) { continue;}
+							
 							$vs_bundle = $vs_table.'.'.$vs_field;
 							
 							$vs_display = "<div id='searchFormEditor_{$vs_table}_{$vs_field}'><span class='bundleDisplayEditorPlacementListItemTitle'>".caUcFirstUTF8Safe($t_instance->getProperty('NAME_SINGULAR'))."</span> ".($vs_label = $t_instance->getDisplayLabel($vs_bundle))."</div>";
@@ -871,11 +874,14 @@ class ca_search_forms extends BundlableLabelableBaseModelWithAttributes {
 						if ($this->getAppConfig()->get($vs_subject_table.'_disable')) { continue; }
 					}
 					
+					if (caGetBundleAccessLevel($vs_primary_table, $vs_subject_table) == __CA_BUNDLE_ACCESS_NONE__) { continue;}
 					foreach($va_fields['fields'] as $vs_field => $va_field_indexing_info) {
 						if (in_array('DONT_INCLUDE_IN_SEARCH_FORM', $va_field_indexing_info)) { continue; }
 							
 						if (($va_field_info = $t_table->getFieldInfo($vs_field))) {
 							if (isset($va_field_info['DONT_USE_AS_BUNDLE']) && $va_field_info['DONT_USE_AS_BUNDLE']) { continue; }
+							
+							
 							
 							$vs_bundle = $vs_table.'.'.$vs_field;
 							
@@ -1055,7 +1061,7 @@ class ca_search_forms extends BundlableLabelableBaseModelWithAttributes {
 		if (!is_array($pa_form_data)) { $pa_form_data = array(); }
 		
 		foreach($pa_form_data as $vs_k => $vs_v) {
-			$pa_form_data[$vs_k] = trim($pa_form_data[$vs_k]);
+			$pa_form_data[$vs_k] = trim((string)$pa_form_data[$vs_k]);
 		}
 		
 		$va_form_contents = $this->getPlacements();

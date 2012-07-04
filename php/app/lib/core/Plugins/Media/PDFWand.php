@@ -234,7 +234,7 @@ class WLPlugMediaPDFWand Extends WLPlug implements IWLPlugMedia {
 			if ($va_tmp[0] === 'PDF') {
 				return array(
 					'width' => intval($va_tmp[1]),
-					'height' => intval($va_tmp[1]),
+					'height' => intval($va_tmp[2]),
 					'pages' => sizeof($va_output)
 				);
 			}
@@ -328,10 +328,13 @@ class WLPlugMediaPDFWand Extends WLPlug implements IWLPlugMedia {
 				return false;
 			}
 		}
+		
+		$this->filepath = $ps_filepath;
+		
 		//try to extract text
 		if (caMediaPluginPdftotextInstalled($this->ops_pdftotext_path)) {
 			$vs_tmp_filename = tempnam('/tmp', 'CA_PDF_TEXT');
-			exec($this->ops_pdftotext_path.' -q -enc UTF-8 "'.$ps_filepath.'" '.$vs_tmp_filename);
+			exec($this->ops_pdftotext_path.' -q -enc UTF-8 \''.$ps_filepath.'\' '.$vs_tmp_filename);
 			$vs_extracted_text = file_get_contents($vs_tmp_filename);
 			$this->handle['content'] = $this->ohandle['content'] = $vs_extracted_text;
 			@unlink($vs_tmp_filename);

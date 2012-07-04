@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -126,14 +126,14 @@ class OccurrenceAttributeValue extends AttributeValue implements IAttributeValue
 	}
 	# ------------------------------------------------------------------
 	public function loadTypeSpecificValueFromRow($pa_value_array) {
-		$this->opn_occurrence_id = isset($pa_value_array['value_integer1']) ? $pa_value_array['value_integer1'] : null;
+		$this->opn_occurrence_id = $pa_value_array['value_integer1'];
 		require_once(__CA_MODELS_DIR__.'/ca_occurrences.php');
 		$t_occ = new ca_occurrences($this->opn_occurrence_id);
 		$this->ops_text = $t_occ->getLabelForDisplay().($t_occ->get("idno") ? " [".$t_occ->get("idno")."]" : "");
 	}
 	# ------------------------------------------------------------------
 	public function getDisplayValue($pa_options=null) {
-		return $this->ops_text."|".$this->opn_occurrence_id;
+		return $this->ops_text;
 	}
  	# ------------------------------------------------------------------
 	public function getOccurrenceID() {
@@ -196,8 +196,8 @@ class OccurrenceAttributeValue extends AttributeValue implements IAttributeValue
 			);
 
 		if ($pa_options['po_request']) {
-			if($va_settings['restrictToOccurrenceTypeIdno'] && $va_settings['restrictToOccurrenceTypeIdno'] != ''){
-				$va_params = array("type" => $va_settings['restrictToOccurrenceTypeIdno']);
+			if($pa_element_info['settings']['restrictToOccurrenceTypeIdno'] && $pa_element_info['settings']['restrictToOccurrenceTypeIdno'] != ''){
+				$va_params = array("type" => $pa_element_info['settings']['restrictToOccurrenceTypeIdno']);
 			} else {
 				$va_params = null;
 			}
@@ -218,11 +218,6 @@ class OccurrenceAttributeValue extends AttributeValue implements IAttributeValue
 							jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val(data[0] + '|' + data[1]);
 						}
 					);
-					var values = jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val().split('|');
-					if(values.length>1){
-						jQuery('#occ_".$pa_element_info['element_id']."_autocomplete{n}').val(values[0]);
-						jQuery('#{fieldNamePrefix}".$pa_element_info['element_id']."_{n}').val(values[0]+'|'+values[1]);
-					}
 				});
 			</script>
 		";

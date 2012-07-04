@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -93,6 +93,13 @@ BaseModel::$s_ca_models_definitions['ca_set_items'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Sort order'), 'DESCRIPTION' => _t('The relative priority of the set when displayed in a list with other sets. Lower numbers indicate higher priority.'),
+		),
+		'vars' => array(
+				'FIELD_TYPE' => FT_VARS, 'DISPLAY_TYPE' => DT_OMIT, 
+				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 15,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				'LABEL' => 'Set item variable storage', 'DESCRIPTION' => 'Storage area for set item variables'
 		)
  	)
 );
@@ -200,6 +207,13 @@ class ca_set_items extends BundlableLabelableBaseModelWithAttributes {
 
 	protected $FIELDS;
 	
+	
+	/** 
+	 * Container for persistent set item-specific variables
+	 */
+	private $opa_set_item_vars;
+	private $opa_set_item_vars_have_changed = false;
+	
 	# ------------------------------------------------------
 	# --- Constructor
 	#
@@ -213,6 +227,61 @@ class ca_set_items extends BundlableLabelableBaseModelWithAttributes {
 	# ------------------------------------------------------
 	public function __construct($pn_id=null) {
 		parent::__construct($pn_id);	# call superclass constructor
+	}
+	# ----------------------------------------
+	/**
+	 * Loads record.
+	 *
+	 * @access public
+	 * @param int $pn_set_item_id Set item id to load. 
+	 * @return bool Returns true if no error, false if error occurred
+	 */	
+	public function load($pn_set_item_id=null) {
+		$vn_rc = parent::load($pn_set_item_id);
+		
+		# load set item vars (the get() method automatically unserializes the data)
+		$this->opa_set_item_vars = $this->get("vars");
+		$this->opa_set_item_vars_have_changed = false;
+		
+		if (!isset($this->opa_set_item_vars) || !is_array($this->opa_set_item_vars)) {
+			$this->opa_set_item_vars = array();
+		}
+		return $vn_rc;
+	}
+	# ----------------------------------------
+	/**
+	 * Creates new set item record. You must set all required fields before calling this method. 
+	 * If errors occur you can use the standard BaseModel class error handling methods to figure out what went wrong.
+	 *
+	 * @access public 
+	 * @return bool Returns true if no error, false if error occurred
+	 */	
+	public function insert($pa_options=null) {
+		
+		# set vars (the set() method automatically serializes the vars array)
+		$this->set("vars",$this->opa_set_item_vars);
+		
+		return parent::insert($pa_options);
+	}
+	# ----------------------------------------
+	/**
+	 * Saves changes to set item record. 
+	 * You must make sure all required fields are set before calling this method. 
+	 If errors occur you can use the standard BaseModel class error handling methods to figure out what went wrong.
+	 *
+	 * If you do not call this method at the end of your request changed vars will not be saved! 
+	 *
+	 * @access public
+	 * @return bool Returns true if no error, false if error occurred
+	 */	
+	public function update($pa_options=null) {
+		$this->clearErrors();
+		
+		# set user vars (the set() method automatically serializes the vars array)
+		if ($this->opa_set_item_vars_have_changed) {
+			$this->set("vars",$this->opa_set_item_vars);
+		}
+		return parent::update();
 	}
 	# ------------------------------------------------------
 	protected function initLabelDefinitions() {
@@ -324,6 +393,173 @@ class ca_set_items extends BundlableLabelableBaseModelWithAttributes {
  		
  		return $va_reps;
  	}
-	# ------------------------------------------------------
+ 	# ----------------------------------------
+	# --- Set item variables
+	# ----------------------------------------
+	/**
+	 * Sets set item variable. Set item variables are names ("keys") with associated values (strings, numbers or arrays).
+	 * Once a set item variable is set its value persists across instantiations until deleted or changed.
+	 *
+	 * Changes to set item variables are saved when the insert() (for new item records) or update() (for existing item records)
+	 * method is called. If you do not call either of these any changes will be lost when the request completes.
+	 *
+	 * @access public
+	 * @param string $ps_key Name of set item variable
+	 * @param mixed $pm_val Value of set item variable. Can be string, number or array.
+	 * @param array $pa_options Associative array of options. Supported options are:
+	 *		- ENTITY_ENCODE_INPUT = Convert all "special" HTML characters in variable value to entities; default is true
+	 *		- URL_ENCODE_INPUT = Url encodes variable value; default is  false
+	 * @return bool Returns true on successful save, false if the variable name or value was invalid
+	 */	
+	public function setVar ($ps_key, $pm_val, $pa_options=null) {
+		if (is_object($pm_val)) { return false; }
+		
+		if (!is_array($pa_options)) { $pa_options = array(); }
+		
+		$this->clearErrors();
+		if ($ps_key) {			
+			
+			$va_vars =& $this->opa_set_item_vars;
+			$vb_has_changed =& $this->opa_set_item_vars_have_changed;	
+			
+			if (isset($pa_options["ENTITY_ENCODE_INPUT"]) && $pa_options["ENTITY_ENCODE_INPUT"]) {
+				if (is_string($pm_val)) {
+					$vs_proc_val = htmlentities(html_entity_decode($pm_val));
+				} else {
+					$vs_proc_val = $pm_val;
+				}
+			} else {
+				if (isset($pa_options["URL_ENCODE_INPUT"]) && $pa_options["URL_ENCODE_INPUT"]) {
+					$vs_proc_val = urlencode($pm_val);
+				} else {
+					$vs_proc_val = $pm_val;
+				}
+			}
+			
+			if (
+				(
+					(is_array($vs_proc_val) && !is_array($va_vars[$ps_key]))
+					||
+					(!is_array($vs_proc_val) && is_array($va_vars[$ps_key]))
+					||
+					(is_array($vs_proc_val) && (is_array($va_vars[$ps_key])) && (sizeof($vs_proc_val) != sizeof($va_vars[$ps_key])))
+					||
+					(md5(print_r($vs_proc_val, true)) != md5(print_r($va_vars[$ps_key], true)))
+				)
+			) {
+				$vb_has_changed = true;
+				$va_vars[$ps_key] = $vs_proc_val;
+			} else {
+				if ((string)$vs_proc_val != (string)$va_vars[$ps_key]) {
+					$vb_has_changed = true;
+					$va_vars[$ps_key] = $vs_proc_val;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	# ----------------------------------------
+	/**
+	 * Deletes set item variable. Once deleted, you must call insert() (for new item records) or update() (for existing item records)
+	 * to make the deletion permanent.
+	 *
+	 * @access public
+	 * @param string $ps_key Name of set item variable
+	 * @return bool Returns true if variable was defined, false if it didn't exist
+	 */	
+	public function deleteVar ($ps_key) {
+		$this->clearErrors();
+		
+		if (isset($this->opa_set_item_vars[$ps_key])) {
+			unset($this->opa_set_item_vars[$ps_key]);
+			$this->opa_set_item_vars_have_changed = true;
+			return true;
+		} 
+		return false;
+	}
+	# ----------------------------------------
+	/**
+	 * Returns value of set item variable. Returns null if variable does not exist.
+	 *
+	 * @access public
+	 * @param string $ps_key Name of set item variable
+	 * @return mixed Value of variable (string, number or array); null is variable is not defined.
+	 */	
+	public function getVar ($ps_key) {
+		$this->clearErrors();
+		if (isset($this->opa_set_item_vars[$ps_key])) {
+			return (is_array($this->opa_set_item_vars[$ps_key])) ? $this->opa_set_item_vars[$ps_key] : stripSlashes($this->opa_set_item_vars[$ps_key]);
+		}
+		return null;
+	}
+	# ----------------------------------------
+	/**
+	 * Returns list of set item variable names
+	 *
+	 * @access public
+	 * @return array Array of set item names, or empty array if none are defined
+	 */	
+	public function getVarKeys() {
+		$va_keys = array();
+		if (isset($this->opa_set_item_vars) && is_array($this->opa_set_item_vars)) {
+			$va_keys = array_keys($this->opa_set_item_vars);
+		}
+		
+		return $va_keys;
+	}
+	# ----------------------------------------
+	/**
+	 * 
+	 */	
+	public function getSelectedRepresentationIDs() {
+		if ($this->get('table_num') != 57) { return null; }
+		
+		return is_array($va_reps = $this->getVar('selected_representations')) ? $va_reps : array();
+	}
+	# ----------------------------------------
+	/**
+	 * 
+	 */	
+	public function getRepresentationCount() {
+		if ($this->get('table_num') != 57) { return null; }
+		
+		$t_object = new ca_objects($this->get('row_id'));
+		return (int)$t_object->getRepresentationCount();
+	}
+	# ----------------------------------------
+	/**
+	 * 
+	 */	
+	public function getSelectedRepresentationCount() {
+		if ($this->get('table_num') != 57) { return null; }
+		
+		return sizeof($this->getSelectedRepresentationIDs());
+	}
+	# ----------------------------------------
+	/**
+	 * 
+	 */	
+	public function addSelectedRepresentation($pn_representation_id) {
+		if ($this->get('table_num') != 57) { return null; }
+		
+		$va_reps = $this->getSelectedRepresentationIDs();
+		$va_reps[$pn_representation_id] = 1;
+		$this->setMode(ACCESS_WRITE);
+		$this->setVar('selected_representations', $va_reps);
+	}
+	# ----------------------------------------
+	/**
+	 * 
+	 */	
+	public function removeSelectedRepresentation($pn_representation_id) {
+		if ($this->get('table_num') != 57) { return null; }
+		
+		$va_reps = $this->getSelectedRepresentationIDs();
+		unset($va_reps[$pn_representation_id]);
+		$this->setMode(ACCESS_WRITE);
+		$this->setVar('selected_representations', $va_reps);
+	}
+	# ----------------------------------------
 }
 ?>

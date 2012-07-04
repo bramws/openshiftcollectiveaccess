@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2009 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -78,9 +78,12 @@
 		}
 		print "<div class='objectFullTextTextBlock'>".caNavLink($this->request, ($vs_action == "Edit" ? _t("Edit") : _t("View"))." &rsaquo;", 'button', 'editor/objects', 'ObjectEditor', $vs_action, array('object_id' => $vn_object_id))."</div>";
 		print "</div><!-- END objectFullText -->";
-		print "<br/><div class='divide'><!-- empty --></div>";
+		
 		$vn_item_count++;
+		
+		if ($vn_item_count < $vn_items_per_page) {
+			print "<br/><div class='divide'><!-- empty --></div>";
+		}
 	}
 ?>
 </form>
-<div class="editorBottomPadding"><!-- empty --></div>

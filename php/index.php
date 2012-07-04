@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -52,8 +52,8 @@
 	
 	$app = AppController::getInstance();
 	
-	$req = $app->getRequest();
-	$resp = $app->getResponse();
+	$g_request = $req = $app->getRequest();
+	$g_response = $resp = $app->getResponse();
 	
 	// Prevent caching
 	$resp->addHeader("Cache-Control", "no-cache, must-revalidate");

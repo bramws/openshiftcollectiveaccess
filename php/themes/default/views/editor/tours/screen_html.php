@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -28,14 +28,19 @@
  	$t_tour = $this->getVar('t_subject');
 	$vn_tour_id = $this->getVar('subject_id');
 	
+	$vb_can_edit	 	= $t_tour->isSaveable($this->request);
+	$vb_can_delete		= $t_tour->isDeletable($this->request);
+	
 	$t_ui = $this->getVar('t_ui');
 	
-	print $vs_control_box = caFormControlBox(
-		caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'TourEditorForm').' '.
-		caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/tours', 'TourEditor', 'Edit/'.$this->request->getActionExtra(), array('tour_id' => $vn_tour_id)), 
-		'', 
-		(intval($vn_tour_id) > 0) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'administrate/setup/tours', 'TourEditor', 'Delete/'.$this->request->getActionExtra(), array('tour_id' => $vn_tour_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'TourEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/tours', 'TourEditor', 'Edit/'.$this->request->getActionExtra(), array('tour_id' => $vn_tour_id)), 
+			'', 
+			((intval($vn_tour_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'administrate/setup/tours', 'TourEditor', 'Delete/'.$this->request->getActionExtra(), array('tour_id' => $vn_tour_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -47,7 +52,7 @@
 			
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='tour_id' value='<?php print $vn_tour_id; ?>'/>
 		</form>

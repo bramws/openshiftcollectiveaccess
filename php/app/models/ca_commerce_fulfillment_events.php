@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2011 Whirl-i-Gig
+ * Copyright 2011-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -61,16 +61,16 @@ BaseModel::$s_ca_models_definitions['ca_commerce_fulfillment_events'] = array(
 				'LABEL' => _t('Item'), 'DESCRIPTION' => _t('Indicates the item which was fulfilled.')
 		),
 		'fulfillment_method' => array(
-				'FIELD_TYPE' => FT_NUMBER, 'DISPLAY_TYPE' => DT_SELECT,
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_SELECT,
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
 				'LABEL' => _t('Fulfillment method'), 'DESCRIPTION' => _t('Indicates manner in which fulfillment occurred.'),
 				'BOUNDS_CHOICE_LIST' => array(
-					_t('No fulfillment required') => 0,
-					_t('Shipped package') => 1,
-					_t('Email') => 2,
-					_t('Download') => 3
+					_t('No fulfillment required') => 'NONE',
+					_t('Shipped package') => 'SHIP',
+					_t('Email') => 'EMAIL',
+					_t('Download') => 'DOWNLOAD'
 				)
 		),
 		'fulfillment_details' => array(
@@ -86,7 +86,7 @@ BaseModel::$s_ca_models_definitions['ca_commerce_fulfillment_events'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Notes'), 'DESCRIPTION' => _t('Notes pertaining to the fulfillment of the item.'),
-				'BOUNDS_LENGTH' => array(1,255)
+				'BOUNDS_LENGTH' => array(0,65535)
 		),
 		'occurred_on' => array(
 				'FIELD_TYPE' => FT_TIMESTAMP, 'DISPLAY_TYPE' => DT_FIELD, 'UPDATE_ON_UPDATE' => true,
@@ -181,6 +181,21 @@ class ca_commerce_fulfillment_events extends BaseModel {
 	# ----------------------------------------
 	public function __construct($pn_id=null) {
 		parent::__construct($pn_id);
+	}
+	# ----------------------------------------
+	/**
+	 *
+	 */
+	public static function logEvent($pn_order_id, $pn_item_id, $ps_fulfillment_method, $ps_fulfillment_details=null, $ps_notes=null) {
+		$t_event = new ca_commerce_fulfillment_events();
+		$t_event->setMode(ACCESS_WRITE);
+		$t_event->set('order_id', $pn_order_id);
+		$t_event->set('item_id', $pn_item_id);
+		$t_event->set('fulfillment_method', $ps_fulfillment_method);
+		$t_event->set('fulfillment_details', $ps_fulfillment_details);
+		$t_event->set('notes', $ps_notes);
+		
+		return $t_event->insert();
 	}
 	# ----------------------------------------
 }

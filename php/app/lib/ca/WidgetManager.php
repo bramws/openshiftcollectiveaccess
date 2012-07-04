@@ -229,7 +229,7 @@
 				require_once($vs_base_widget_dir.'/'.$vs_widget_dir.'/'.$vs_widget_dir.'Widget.php');
 				$vs_widget_classname = $vs_widget_dir.'Widget';
 			
-				$va_actions = array_merge($va_actions, $vs_widget_classname::getRoleActionList());
+				$va_actions = array_merge($va_actions, call_user_func(array($vs_widget_classname, 'getRoleActionList')));
 			}
 			return $va_actions;
 		}

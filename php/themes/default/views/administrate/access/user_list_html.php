@@ -37,8 +37,7 @@
 </script>
 <div class="sectionBox">
 	<?php 
-		print caFormTag($this->request, 'ListUsers', 'caUserListForm');
-		
+		print caFormTag($this->request, 'ListUsers', 'caUserListForm', null, 'post', 'multipart/form-data', '_top', array('disableUnsavedChangesWarning' => true));
 		print caFormControlBox(
 			'<div class="list-filter">'._t('Filter').': <input type="text" name="filter" value="" onkeyup="$(\'#caUserList\').caFilterTable(this.value); return false;" size="20"/></div>', 
 			''._t('Show %1 users', caHTMLSelect('userclass', $this->request->user->getFieldInfo('userclass', 'BOUNDS_CHOICE_LIST'), array('onchange' => 'jQuery("#caUserListForm").submit();'), array('value' => $this->getVar('userclass')))), 
@@ -94,8 +93,8 @@
 					<?php print ($va_user['last_login'] > 0) ? $o_tep->getText() : '-'; ?>
 				</td>
 				<td>
-					<?php print caNavButton($this->request, __CA_NAV_BUTTON_EDIT__, _t("Edit"), 'administrate/access', 'Users', 'Edit', array('user_id' => $va_user['user_id']), array(), array('icon_position' => __CA_NAV_BUTTON_ICON_POS_LEFT__, 'use_class' => 'list-button', 'no_background' => true, 'dont_show_content' => true)); ?>
-					<?php print caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'administrate/access', 'Users', 'Delete', array('user_id' => $va_user['user_id']), array(), array('icon_position' => __CA_NAV_BUTTON_ICON_POS_LEFT__, 'use_class' => 'list-button', 'no_background' => true, 'dont_show_content' => true)); ?>
+					<nobr><?php print caNavButton($this->request, __CA_NAV_BUTTON_EDIT__, _t("Edit"), 'administrate/access', 'Users', 'Edit', array('user_id' => $va_user['user_id']), array(), array('icon_position' => __CA_NAV_BUTTON_ICON_POS_LEFT__, 'use_class' => 'list-button', 'no_background' => true, 'dont_show_content' => true)); ?>
+					<?php print caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'administrate/access', 'Users', 'Delete', array('user_id' => $va_user['user_id']), array(), array('icon_position' => __CA_NAV_BUTTON_ICON_POS_LEFT__, 'use_class' => 'list-button', 'no_background' => true, 'dont_show_content' => true)); ?></nobr>
 				</td>
 			</tr>
 <?php

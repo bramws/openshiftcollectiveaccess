@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -35,13 +35,15 @@
    */ 
    
  	require_once(__CA_LIB_DIR__.'/core/Configuration.php');
+ 	require_once(__CA_LIB_DIR__.'/core/View.php');
  	require_once(__CA_LIB_DIR__.'/core/Logging/Eventlog.php');
  	require_once(__CA_LIB_DIR__.'/core/Zend/Mail.php');
  	require_once(__CA_LIB_DIR__.'/core/Zend/Mail/Transport/Smtp.php');
 	require_once(__CA_LIB_DIR__.'/core/Zend/Mail/Transport/Sendmail.php');
  	
+ 	# ------------------------------------------------------------------------------------------------
  	/**
- 	 * Sends mail using server settings specificed in app.conf/global.conf
+ 	 * Sends mail using server settings specified in app.conf/global.conf
  	 *
  	 * Parameters are:
  	 *
@@ -54,11 +56,17 @@
  	 *	$ps_subject:	The subject line of the message
  	 *	$ps_body_text:	The text of the message				(optional)
  	 *	$ps_html_text:	The HTML-format text of the message (optional)
+ 	 * 	$pa_cc: 	Email address(es) of cc'ed message recipients. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable recipient name. (optional)
+ 	 * 	$pa_bcc: 	Email address(es) of bcc'ed message recipients. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable recipient name. (optional)
  	 *
  	 * While both $ps_body_text and $ps_html_text are optional, at least one should be set and both can be set for a 
  	 * combination text and HTML email
  	 */
-	function caSendmail($pa_to, $pa_from, $ps_subject, $ps_body_text, $ps_body_html='') {
+	function caSendmail($pa_to, $pa_from, $ps_subject, $ps_body_text, $ps_body_html='', $pa_cc=null, $pa_bcc=null) {
 		$o_config = Configuration::load();
 		$o_log = new Eventlog();
 		
@@ -117,8 +125,33 @@
 			}
 			
 			foreach($pa_to as $vs_to_email => $vs_to_name) {
-				$o_mail->addTo($vs_to_email, $vs_to_name);
+				if (is_numeric($vs_to_email)) {
+					$o_mail->addTo($vs_to_name, $vs_to_name);
+				} else {
+					$o_mail->addTo($vs_to_email, $vs_to_name);
+				}
 			}
+			
+			if (is_array($pa_cc) && sizeof($pa_cc)) {
+				foreach($pa_cc as $vs_to_email => $vs_to_name) {
+					if (is_numeric($vs_to_email)) {
+						$o_mail->addCc($vs_to_name, $vs_to_name);
+					} else {
+						$o_mail->addCc($vs_to_email, $vs_to_name);
+					}
+				}
+			}
+			
+			if (is_array($pa_bcc) && sizeof($pa_bcc)) {
+				foreach($pa_bcc as $vs_to_email => $vs_to_name) {
+					if (is_numeric($vs_to_email)) {
+						$o_mail->addBcc($vs_to_name, $vs_to_name);
+					} else {
+						$o_mail->addBcc($vs_to_email, $vs_to_name);
+					}
+				}
+			}
+			
 			
 			$o_mail->setSubject($ps_subject);
 			if ($ps_body_text) {
@@ -136,7 +169,7 @@
 			return false;
 		}
 	}
-	
+	# ------------------------------------------------------------------------------------------------
 	/**
 	 * Verifies the $ps_address is a properly formatted email address
 	 * by passing it through a regular expression pattern check and then
@@ -155,7 +188,7 @@
 		
 		return true;
 	}
-	
+	# ------------------------------------------------------------------------------------------------
 	/**
 	 * Verifies using a regular expression the $ps_address looks like a valid email address
 	 * Returns true if $ps_address looks like an email address, false if it doesn't
@@ -166,4 +199,36 @@
 		}
 		return true;
 	}
+	# ------------------------------------------------------------------------------------------------
+	/**
+	* Sends mail message using specified view and variable to merge
+ 	 *
+ 	 * Parameters are:
+ 	 *
+ 	 * 	$pa_to: 	Email address(es) of message recipients. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable recipient name.
+ 	 *	$pa_from:	The email address of the message sender. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable sender name.
+ 	 *	$ps_subject:	The subject line of the message
+ 	 *	$ps_view:	The name of a view in the 'mailTemplates' view directory
+ 	 * 	$pa_values:	An array of values
+ 	 * 	$pa_cc: 	Email address(es) of cc'ed message recipients. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable recipient name. (optional)
+ 	 * 	$pa_bcc: 	Email address(es) of bcc'ed message recipients. Can be a string containing a single email address or
+ 	 *				an associative array with keys set to multiple addresses and corresponding values optionally set to
+ 	 *				a human-readable recipient name. (optional)
+ 	 *
+ 	 * @return string True if send, false if error
+	 */
+	function caSendMessageUsingView($po_request, $pa_to, $pa_from, $ps_subject, $ps_view, $pa_values, $pa_cc=null, $pa_bcc=null) {
+		$o_view = new View(null, $po_request->getViewsDirectoryPath()."/mailTemplates");
+		foreach($pa_values as $vs_key => $vm_val) {
+			$o_view->setVar($vs_key, $vm_val);
+		}
+		return caSendmail($pa_to, $pa_from, $ps_subject, null, $o_view->render($ps_view), $pa_cc, $pa_bcc);
+	}
+	# ------------------------------------------------------------------------------------------------
 ?>

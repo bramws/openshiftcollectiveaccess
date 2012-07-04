@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -65,6 +65,23 @@ BaseModel::$s_ca_models_definitions['ca_storage_locations'] = array(
 				'LIST_CODE' => 'storage_location_types',
 				'LABEL' => _t('Type'), 'DESCRIPTION' => _t('The type of the storage location. In CollectiveAccess every storage location has a single "instrinsic" type that determines the set of descriptive and administrative metadata that can be applied to it.')
 		),
+		'idno' => array(
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_FIELD, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
+				'LABEL' => _t('Location identifier'), 'DESCRIPTION' => _t('A unique alphanumeric identifier for this location.'),
+				'BOUNDS_LENGTH' => array(0,255)
+		),
+		'idno_sort' => array(
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_OMIT, 
+				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				'LABEL' => 'Sortable location identifier', 'DESCRIPTION' => 'Value used for sorting locations on identifier value.',
+				'BOUNDS_LENGTH' => array(0,255)
+		),
 		'source_info' => array(
 				'FIELD_TYPE' => FT_VARS, 'DISPLAY_TYPE' => DT_OMIT, 
 				'DISPLAY_WIDTH' => 88, 'DISPLAY_HEIGHT' => 15,
@@ -91,6 +108,7 @@ BaseModel::$s_ca_models_definitions['ca_storage_locations'] = array(
 				'DISPLAY_WIDTH' => 40, 'DISPLAY_HEIGHT' => 1,
 				'IS_NULL' => false, 
 				'DEFAULT' => 0,
+				'ALLOW_BUNDLE_ACCESS_CHECK' => true,
 				'BOUNDS_CHOICE_LIST' => array(
 					_t('Newly created') => 0,
 					_t('Editing in progress') => 1,
@@ -115,6 +133,21 @@ BaseModel::$s_ca_models_definitions['ca_storage_locations'] = array(
 				'IS_NULL' => false, 
 				'DEFAULT' => '',
 				'LABEL' => _t('Sort order'), 'DESCRIPTION' => _t('Sort order'),
+		),
+		'color' => array(
+				'FIELD_TYPE' => FT_TEXT, 'DISPLAY_TYPE' => DT_COLORPICKER, 
+				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				'LABEL' => _t('Color'), 'DESCRIPTION' => _t('Color to identify the editor UI with')
+		),
+		'icon' => array(
+				'FIELD_TYPE' => FT_MEDIA, 'DISPLAY_TYPE' => DT_FIELD, 
+				'DISPLAY_WIDTH' => 10, 'DISPLAY_HEIGHT' => 1,
+				'IS_NULL' => false, 
+				'DEFAULT' => '',
+				"MEDIA_PROCESSING_SETTING" => 'ca_icons',
+				'LABEL' => _t('Icon'), 'DESCRIPTION' => _t('Optional icon to identify the editor UI with')
 		)
  	)
 );
@@ -216,6 +249,12 @@ class ca_storage_locations extends BundlableLabelableBaseModelWithAttributes imp
 	protected $ATTRIBUTE_TYPE_ID_FLD = 'type_id';			// name of type field for this table - attributes system uses this to determine via ca_metadata_type_restrictions which attributes are applicable to rows of the given type
 	protected $ATTRIBUTE_TYPE_LIST_CODE = 'storage_location_types';	// list code (ca_lists.list_code) of list defining types for this table
 
+	# ------------------------------------------------------
+	# ID numbering
+	# ------------------------------------------------------
+	protected $ID_NUMBERING_ID_FIELD = 'idno';				// name of field containing user-defined identifier
+	protected $ID_NUMBERING_SORT_FIELD = 'idno_sort';		// name of field containing version of identifier for sorting (is normalized with padding to sort numbers properly)
+	
 	
 	# ------------------------------------------------------
 	# $FIELDS contains information about each field in the table. The order in which the fields
@@ -252,6 +291,7 @@ class ca_storage_locations extends BundlableLabelableBaseModelWithAttributes imp
 		$this->BUNDLES['ca_movements'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related movements'));
 		
 		$this->BUNDLES['ca_list_items'] = array('type' => 'related_table', 'repeating' => true, 'label' => _t('Related vocabulary terms'));
+		$this->BUNDLES['ca_sets'] = array('type' => 'special', 'repeating' => true, 'label' => _t('Sets'));
 		
 		$this->BUNDLES['hierarchy_navigation'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Hierarchy navigation'));
 		$this->BUNDLES['hierarchy_location'] = array('type' => 'special', 'repeating' => false, 'label' => _t('Location in hierarchy'));

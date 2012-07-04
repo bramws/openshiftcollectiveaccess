@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2004-2009 Whirl-i-Gig
+ * Copyright 2004-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -34,12 +34,6 @@
   *
   */
 # ----------------------------------------------------------------------
-# class ZipFile
-#
-# Class to create zip format archives
-#
-# Author		seth@whirl-i-gig.com
-#
 #
 # Based upon :
 #
@@ -129,24 +123,24 @@ class ZipFile {
 	# ----------------------------------------------------------------------
 	# --- Methods
 	# ----------------------------------------------------------------------
-	# Constructor
-	#
-	function ZipFile() {
+	/**
+	 * Constructor
+	 */
+	public function __construct() {
 		$this->_tmp_data_path = tempnam("/tmp", "ZIP");
 		$this->_tmp_data = fopen($this->_tmp_data_path, "w+");
 	}
 	# ----------------------------------------------------------------------
     /**
-     * Converts an Unix timestamp to a four byte DOS date and time format (date
+     * Converts a Unix timestamp to a four byte DOS date and time format (date
      * in high two bytes, time in low two bytes allowing magnitude comparison).
      *
      * @param  integer  the current Unix timestamp
-     *
      * @return integer  the current date in a four byte DOS format
      *
      * @access private
      */
-    function unix2DosTime($unixtime = 0) {
+    private function unix2DosTime($unixtime = 0) {
         $timearray = ($unixtime == 0) ? getdate() : getdate($unixtime);
 
         if ($timearray['year'] < 1980) {
@@ -166,13 +160,15 @@ class ZipFile {
     /**
      * Adds "file" to archive
      *
-     * @param  string   file contents (or file path)
-     * @param  string   name of the file in the archive (may contains the path)
-     * @param  integer  the current timestamp
+     * @param string $data file contents (or file path)
+     * @param string $name name of the file in the archive (may contains the path)
+     * @param integer $time the current timestamp
+     * @param array $pa_options An array of options. Supported options are:
+     *		compression = a number between 0 and 9 where zero is no compression (fastest) and 9 is most compression (slowest). Default is to use PHP default compression level.
      *
      * @access public
      */
-    function addFile($data, $name, $time = 0) {
+    public function addFile($data, $name, $time=0, $pa_options=null) {
     	if ($this->finished) {
     		return 0;	
     	}
@@ -184,7 +180,7 @@ class ZipFile {
     	# If $data parameter begins with a forward slash and ends
     	# with a letter, number or underscore and is 255 characters
     	# or less, it is treated as a file path
-    	if ((strlen($data) <= 255) && (preg_match("/^\/.*[A-Za-z0-9_]{1}$/", $data))) {
+    	if ((strlen($data) <= 255) && ((preg_match("/^\/.*[A-Za-z0-9_]{1}$/", $data)) || (preg_match("/^[A-Za-z]{1}:.*[A-Za-z0-9_]{1}$/", $data)))) {
     		$path = $data;
     		if ($fp = fopen($path,"r")) {
     			$l = filesize($path);
@@ -211,7 +207,7 @@ class ZipFile {
         // "local file header" segment
         $unc_len = strlen($data);
         $crc     = crc32($data);
-        $zdata   = gzcompress($data);
+        $zdata   = gzcompress($data,(isset($pa_options['compression']) && ((int)$pa_options['compression'] >= 0)) ? (int)$pa_options['compression'] : -1);
 
         $data = "";  
 
@@ -273,8 +269,19 @@ class ZipFile {
     } // end of the 'addFile()' method
 
 	# ----------------------------------------------------------------------
-	#	
-	function output($output=0) {
+	/**
+	 * Output ZIP archive
+	 *
+	 * @param int $output Constant indicating where output should be sent. Constants are:
+	 *		ZIPFILE_RETURN_HANDLE = return file handle for output
+	 *		ZIPFILE_RETURN_STRING = return output as string; this will consume as much memory as the total output size and should only be used for small archives.
+	 *		ZIPFILE_PASSTHRU = pass through compressed data to standard output
+	 *		ZIPFILE_FILEPATH = return a path to the temporary file containing the ZIP archive output
+	 *	The default is to return a file handle.
+	 *
+	 *	@return mixed The output is the form specified by $output.
+	 */
+	public function output($output=0) {
 		if (!$this->finished) {
 			$ctrldir = implode('', $this->ctrl_dir);
 		
@@ -318,12 +325,16 @@ class ZipFile {
 		}
 	}
 	# ----------------------------------------------------------------------
-	# Returns true if file is complete
-	function isFinished() {
+	/**
+	 * Checks if archive is complete and can be output
+	 *
+	 * @return bool Returns true if file is complete
+	 */
+	public function isFinished() {
 		return $this->finished;
 	}
 	# ----------------------------------------------------------------------
-	function __destruct() {
+	public function __destruct() {
 		if ($this->_tmp_data_path) {		// dispose of temporary file
 			@unlink($this->_tmp_data_path);
 		}

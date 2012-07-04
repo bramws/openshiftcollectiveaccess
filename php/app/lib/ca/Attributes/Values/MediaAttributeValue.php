@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2011 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -100,7 +100,7 @@
  		# ------------------------------------------------------------------
  		/**
  		 * Options:
- 		 *	showMediaInfo - if true media info (dimensions, filesize, bit depth) is returns as part of display; default is true
+ 		 *	showMediaInfo - if true media info (dimensions, filesize, bit depth) is returns as part of display; default is false
  		 *	version - name of media version to return; default is 'thumbnail'
  		 *  return - valid settings are url, tag, path; if set to a valid value then the url, tag or path for the media is returned rather than display HTML
  		 *
@@ -111,7 +111,7 @@
  		 */
 		public function getDisplayValue($pa_options=null) {
 			if(!is_array($pa_options)) { $pa_options = array(); }
-			if(!isset($pa_options['showMediaInfo'])) { $pa_options['showMediaInfo'] = true; }
+			if(!isset($pa_options['showMediaInfo'])) { $pa_options['showMediaInfo'] = false; }
 			if(!isset($pa_options['version'])) { $pa_options['version'] = 'thumbnail'; }
 			$vs_version = $pa_options['version'];
 			
@@ -211,8 +211,9 @@
 					$vs_val = "<div id='caMediaAttribute".$this->opn_value_id."' class='attributeMediaInfoContainer'><div class='attributeMediaThumbnail'>{$vs_tag}</div></div>";
 				}
 				
-				TooltipManager::add('#caMediaAttribute'.$this->opn_value_id, "<h2>"._t('Media details')."</h2> <p>{$vs_filename}</p><p>{$vs_dimensions}</p>");
-						
+				if ($pa_options['showMediaInfo']) {
+					TooltipManager::add('#caMediaAttribute'.$this->opn_value_id, "<h2>"._t('Media details')."</h2> <p>{$vs_filename}</p><p>{$vs_dimensions}</p>");
+				}	
 			}
 			return $vs_val;
 		}

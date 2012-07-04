@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2009-2010 Whirl-i-Gig
+ * Copyright 2009-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -28,18 +28,17 @@
  	$t_representation_annotation 	= $this->getVar('t_subject');
 	$vn_annotation_id 				= $this->getVar('subject_id');
 
-	$vb_can_create		= $this->request->user->canDoAction('can_create_ca_objects');
-	$vb_can_edit		= $this->request->user->canDoAction('can_edit_ca_objects');
-	$vb_can_delete		= $this->request->user->canDoAction('can_delete_ca_objects');
-
-	$vb_print_buttons = (intval($vn_annotation_id) > 0 ? $vb_can_edit : $vb_can_create);
+	$vb_can_edit	 	= $t_representation_annotation->isSaveable($this->request);
+	$vb_can_delete		= $t_representation_annotation->isDeletable($this->request);
 	
-	print $vs_control_box = caFormControlBox(
-		($vb_print_buttons ? caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'RepresentationAnnotationEditorForm') : '').' '.
-		($vb_print_buttons ? caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/representation_annotations', 'RepresentationAnnotationEditor', 'Edit/'.$this->request->getActionExtra(), array('annotation_id' => $vn_annotation_id)) : ''),
-		'', 
-		((intval($vn_annotation_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/representation_annotations', 'RepresentationAnnotationEditor', 'Delete/'.$this->request->getActionExtra(), array('annotation_id' => $vn_annotation_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'RepresentationAnnotationEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/representation_annotations', 'RepresentationAnnotationEditor', 'Edit/'.$this->request->getActionExtra(), array('annotation_id' => $vn_annotation_id)),
+			'', 
+			((intval($vn_annotation_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/representation_annotations', 'RepresentationAnnotationEditor', 'Delete/'.$this->request->getActionExtra(), array('annotation_id' => $vn_annotation_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -51,7 +50,7 @@
 									
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='annotation_id' value='<?php print $vn_annotation_id; ?>'/>
 		</form>

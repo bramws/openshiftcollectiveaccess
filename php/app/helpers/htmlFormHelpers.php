@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2011 Whirl-i-Gig
+ * Copyright 2008-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -125,7 +125,13 @@
 	function caHTMLTextInput($ps_name, $pa_attributes=null, $pa_options=null) {
 		$vb_is_textarea = false;
 		$va_styles = array();
-		if (is_array($va_dim = caParseFormElementDimension(isset($pa_options['width']) ? $pa_options['width'] : (isset($pa_attributes['size']) ? $pa_attributes['size'] : null)))) {
+		if (is_array($va_dim = caParseFormElementDimension(
+			(isset($pa_options['width']) ? $pa_options['width'] : 
+				(isset($pa_attributes['size']) ? $pa_attributes['size'] : 
+					(isset($pa_attributes['width']) ? $pa_attributes['width'] : null)
+				)
+			)
+		))) {
 			if ($va_dim['type'] == 'pixels') {
 				$va_styles[] = "width: ".$va_dim['dimension']."px;";
 				unset($pa_attributes['width']);
@@ -136,7 +142,11 @@
 				$pa_attributes['size'] =$va_dim['dimension'];
 			}
 		}	
-		if (is_array($va_dim = caParseFormElementDimension(isset($pa_options['height']) ? $pa_options['height'] : null))) {
+		if (is_array($va_dim = caParseFormElementDimension(
+			(isset($pa_options['height']) ? $pa_options['height'] : 
+				(isset($pa_attributes['height']) ? $pa_attributes['height'] : null)
+			)
+		))) {
 			if ($va_dim['type'] == 'pixels') {
 				$va_styles[] = "height: ".$va_dim['dimension']."px;";
 				unset($pa_attributes['height']);
@@ -231,9 +241,12 @@
 	 * $ps_name - name of the element
 	 * $pa_attributes - optional associative array of <input> tag options applied to the radio button; keys are attribute names and values are attribute values
 	 * $pa_options - optional associative array of options. Valid options are:
-	 * 			NONE CURRENTLY SUPPORTED
+	 * 			checked = if true, value will be selected by default
 	 */
 	function caHTMLRadioButtonInput($ps_name, $pa_attributes=null, $pa_options=null) {
+		if (isset($pa_options['checked']) && (bool)$pa_options['checked']) {
+			$pa_attributes['checked'] = '1';
+		}
 		$vs_attr_string = _caHTMLMakeAttributeString($pa_attributes);
 		
 		// standard check box
@@ -316,7 +329,9 @@
 			$vn_layers = 						(int)$pa_options["layers"];
 			$vn_ratio = 							(float)$pa_options["layer_ratio"];
 			
-			$vs_id_name = 					(string)$pa_options["idname"];
+			if (!($vs_id_name = (string)$pa_options["idname"])) {
+				$vs_id_name = (string)$pa_options["id"];
+			}
 			if (!$vs_id_name) { $vs_id_name = "bischen"; }
 			
 			$vn_sx = 								intval($vn_width/2.0); 
@@ -324,7 +339,7 @@
 			
 			$vn_init_magnification = 		(float)$pa_options["tilepic_init_magnification"];
 			
-			$vb_use_labels = 					(bool)$pa_options["tilepic_use_labels"];
+			$vb_use_labels = 				(bool)$pa_options["tilepic_use_labels"];
 			$vb_edit_labels = 				(bool)$pa_options["tilepic_edit_labels"];
 			$vs_parameter_list = 			(string)$pa_options["tilepic_parameter_list"];
 			$vs_app_parameters = 			(string)$pa_options["tilepic_app_parameters"];
@@ -353,35 +368,44 @@
 				$vn_viewer_height = (int)$o_config->get("tilepic_viewer_height");
 				if (!$vn_viewer_height) { $vn_viewer_height = 500; }
 			}
-			
+
 			$vs_flash_vars = "tpViewerUrl={$vs_viewer_base_url}/viewers/apps/tilepic.php&tpLabelProcessorURL={$viewer_label_processor_url}&tpImageUrl={$ps_url}&tpWidth={$vn_width}&tpHeight={$vn_height}&tpInitMagnification={$vn_init_magnification}&tpScales={$vn_layers}&tpRatio={$vn_ratio}&tpTileWidth={$vn_tile_width}&tpTileHeight={$vn_tile_height}&tpUseLabels={$vb_use_labels}&tpEditLabels={$vb_edit_labels}&tpParameterList={$vs_parameter_list}{$vs_app_parameters}&labelTypecode={$vn_label_typecode}&labelDefaultTitle=".urlencode($vs_label_title)."&labelTitleReadOnly={$vn_label_title_readonly}";
 			
 			$vs_error_tag = ($pa_options['alt_image_tag']) ? $pa_options['alt_image_tag'] : "Flash version 8 or better required!!!";
-			if (!$vb_directly_embed_flash) {
-				$vs_tag = <<<EOT
-				<div id="$vs_id_name">
+			
+			$vn_viewer_width_with_units = $vn_viewer_width;
+			$vn_viewer_height_with_units = $vn_viewer_height; 
+			if (preg_match('!^[\d]+$!', $vn_viewer_width)) { $vn_viewer_width_with_units .= 'px'; }
+			if (preg_match('!^[\d]+$!', $vn_viewer_height)) { $vn_viewer_height_with_units .= 'px'; }
+$vs_tag = "
+				<div id='{$vs_id_name}' style='width:{$vn_viewer_width_with_units}; height: {$vn_viewer_height_with_units};'>
 					{$vs_error_tag}
 				</div>
 				<script type='text/javascript'>
-					swfobject.embedSWF("{$vs_viewer_base_url}/viewers/apps/bischen.swf", "{$vs_id_name}", "{$vn_viewer_width}", "$vn_viewer_height", "8.0.0","{$vs_viewer_base_url}/viewers/apps/expressInstall.swf", false, {AllowScriptAccess: "always", allowFullScreen: "true", flashvars:"{$vs_flash_vars}", bgcolor: "#ffffff"});
-				</script>
-EOT;
-			} else {		
-				$vs_tag = <<<EOT
-		<object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000" codebase="http://fpdownload.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=8,0,0,0" 
-			width="$vn_viewer_width" height="$vn_viewer_height" id="$vs_id_name" align="middle">
-			<param name="allowScriptAccess" value="sameDomain" />
-			<param name="FlashVars" value="$vs_flash_vars" />
-			<param name="movie" value="$vs_viewer_base_url/viewers/apps/bischen.swf" />
-			<param name="quality" value="high" />
-			<param name="bgcolor" value="#ffffff" />
-			<embed src="$vs_viewer_base_url/viewers/apps/bischen.swf" quality="high" bgcolor="#ffffff" width="$vn_viewer_width" height="$vn_viewer_height" name="$vs_id_name" align="middle" 
-				FlashVars="$vs_flash_vars" 
-				allowScriptAccess="sameDomain" type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />
-			{$vs_error_tag}
-		</object>
-EOT;
-			}
+					var elem = document.createElement('canvas');
+					if (elem.getContext && elem.getContext('2d')) {
+						jQuery(document).ready(function() {
+							jQuery('#{$vs_id_name}').tileviewer({
+								id: '{$vs_id_name}_viewer',
+								src: '{$vs_viewer_base_url}/viewers/apps/tilepic.php?p={$ps_url}&t=',
+								width: '{$vn_viewer_width}',
+								height: '{$vn_viewer_height}',
+								magnifier: false,
+								buttonUrlPath: '{$vs_viewer_base_url}/themes/default/graphics/buttons',
+								info: {
+									width: '{$vn_width}',
+									height: '{$vn_height}',
+									tilesize: 256,
+									levels: '{$vn_layers}'
+								}
+							}); 
+						});
+					} else {
+						// Fall-back to Flash-based viewer if browse doesn't support <canvas>
+						swfobject.embedSWF(\"{$vs_viewer_base_url}/viewers/apps/bischen.swf\", \"{$vs_id_name}\", \"{$vn_viewer_width}\", \"{$vn_viewer_height}\", \"8.0.0\",\"{$vs_viewer_base_url}/viewers/apps/expressInstall.swf\", false, {AllowScriptAccess: \"always\", allowFullScreen: \"true\", flashvars:\"{$vs_flash_vars}\", bgcolor: \"#ffffff\"});
+					}
+				</script>\n";			
+
 			return $vs_tag;
 		} else {
 			#
@@ -412,6 +436,8 @@ EOT;
 		$va_attr_settings = array();
 		if (is_array($pa_attributes)) {
 			foreach($pa_attributes as $vs_attr => $vs_attr_val) {
+				if (is_array($vs_attr_val)) { $vs_attr_val = join(" ", $vs_attr_val); }
+				if (is_object($vs_attr_val)) { continue; }
 				if (isset($pa_options['dontConvertAttributeQuotesToEntities']) && $pa_options['dontConvertAttributeQuotesToEntities']) {
 					$va_attr_settings[] = $vs_attr.'="'.$vs_attr_val.'"';
 				} else {

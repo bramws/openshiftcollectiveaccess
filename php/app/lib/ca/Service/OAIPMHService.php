@@ -722,7 +722,7 @@ class OAIPMHService extends BaseService {
         }
         
         
-    	if(!$vs_metadata_prefix = $this->opo_request->getParameter('metadataPrefix', pString)) {
+    	if((!($vs_metadata_prefix = $this->opo_request->getParameter('metadataPrefix', pString))) && ((in_array('metadataPrefix', $pa_required_parameters)) || (in_array('metadataPrefix', $pa_optional_parameters))) && $this->opa_provider_info['default_format']) {
     		$_REQUEST['metadataPrefix'] = $vs_metadata_prefix = $this->opa_provider_info['default_format'];
     	}
         

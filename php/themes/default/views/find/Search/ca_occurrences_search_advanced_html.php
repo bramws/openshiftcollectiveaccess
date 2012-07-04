@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2010 Whirl-i-Gig
+ * Copyright 2010-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -54,6 +54,7 @@
 ?>		
 	</div><!-- end sectionbox -->
 <?php
+		print $this->render('Results/paging_controls_minimal_html.php');
 	}
 ?>
 	</div><!-- end resultbox -->

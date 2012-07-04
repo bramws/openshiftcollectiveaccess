@@ -28,18 +28,17 @@
  	$t_object_representation 	= $this->getVar('t_subject');
 	$vn_representation_id 		= $this->getVar('subject_id');
 
-	$vb_can_create		= $this->request->user->canDoAction('can_create_ca_objects');
-	$vb_can_edit		= $this->request->user->canDoAction('can_edit_ca_objects');
-	$vb_can_delete		= $this->request->user->canDoAction('can_delete_ca_objects');
-
-	$vb_print_buttons = (intval($vn_representation_id) > 0 ? $vb_can_edit : $vb_can_create);
+	$vb_can_edit	 	= $t_object_representation->isSaveable($this->request);
+	$vb_can_delete		= $t_object_representation->isDeletable($this->request);
 	
-	print $vs_control_box = caFormControlBox(
-		($vb_print_buttons ? caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'ObjectRepresentationEditorForm') : '').' '.
-		($vb_print_buttons ? caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/object_representations', 'ObjectRepresentationEditor', 'Edit/'.$this->request->getActionExtra(), array('representation_id' => $vn_representation_id)) : ''),
-		'', 
-		((intval($vn_representation_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/object_representations', 'ObjectRepresentationEditor', 'Delete/'.$this->request->getActionExtra(), array('representation_id' => $vn_representation_id)) : ''
-	);
+	if ($vb_can_edit) {
+		print $vs_control_box = caFormControlBox(
+			caFormSubmitButton($this->request, __CA_NAV_BUTTON_SAVE__, _t("Save"), 'ObjectRepresentationEditorForm').' '.
+			caNavButton($this->request, __CA_NAV_BUTTON_CANCEL__, _t("Cancel"), 'editor/object_representations', 'ObjectRepresentationEditor', 'Edit/'.$this->request->getActionExtra(), array('representation_id' => $vn_representation_id)),
+			'', 
+			((intval($vn_representation_id) > 0) && $vb_can_delete) ? caNavButton($this->request, __CA_NAV_BUTTON_DELETE__, _t("Delete"), 'editor/object_representations', 'ObjectRepresentationEditor', 'Delete/'.$this->request->getActionExtra(), array('representation_id' => $vn_representation_id)) : ''
+		);
+	}
 ?>
 	<div class="sectionBox">
 <?php
@@ -51,7 +50,7 @@
 			
 			print join("\n", $va_form_elements);
 			
-			print $vs_control_box;
+			if ($vb_can_edit) { print $vs_control_box; }
 ?>
 			<input type='hidden' name='representation_id' value='<?php print $vn_representation_id; ?>'/>
 		</form>

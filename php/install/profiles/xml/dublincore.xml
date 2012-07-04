@@ -1889,9 +1889,13 @@
             <placement code="ca_objects">
               <bundle>ca_objects</bundle>
             </placement>
-            <placement code="ca_entities">
+           <placement code="ca_main">
               <bundle>ca_entities</bundle>
-            </placement>
+            <settings>
+                <setting name="restrict_to_relationship_types">creator</setting>
+                <setting name="label" locale="en_US">Main credits</setting>
+              </settings>
+             </placement>
             <placement code="ca_events">
               <bundle>ca_occurrences</bundle>
               <settings>

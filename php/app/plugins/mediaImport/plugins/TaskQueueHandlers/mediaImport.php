@@ -71,7 +71,7 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 		}
 		# --------------------------------------------------------------------------------
 		# Task processor function - all task queue handlers must implement this
-		#
+		# 
 		# Returns 1 on success, 0 on error
 		public function process($pa_parameters) {
 			$vs_import_mode = 						(string)$pa_parameters["import_mode"];
@@ -139,7 +139,7 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 								if (!$vs_idno || (strlen($va_matches[1]) < strlen($vs_idno))) {
 									$vs_idno = $va_matches[1];
 								}
-								if ($t_object->load(array('idno' => $va_matches[1]))) {
+								if ($t_object->load(array('idno' => $va_matches[1], 'deleted' => 0))) {
 									$va_report[$f]['notes'][] = _t('Matched media %1 to object using %2', $f, $vs_regex_name);
 									break(2);
 								}
@@ -152,7 +152,7 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 							if (!$vs_idno || (strlen($va_matches[1]) < strlen($vs_idno))) {
 								$vs_idno = $va_matches[1];
 							}
-							if($t_object->load(array('idno' => $va_matches[1]))) {
+							if($t_object->load(array('idno' => $va_matches[1], 'deleted' => 0))) {
 								$va_report[$f]['notes'][] = _t('Matched media %1 to object using %2', $f, $vs_matching_mode);
 								break;
 							}
@@ -162,13 +162,14 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 				
 				if (!$t_object->getPrimaryKey()) {
 					// Use filename as idno if all else fails
-					if ($t_object->load(array('idno' => $f))) {
+					if ($t_object->load(array('idno' => $f, 'deleted' => 0))) {
 						$va_report[$f]['notes'][] = _t('Matched media %1 to object using filename', $f);
 					}
 				}
 				
 				if ($t_object->getPrimaryKey()) {
 					// found existing object
+					$t_object->setMode(ACCESS_WRITE);
 					
 					$t_object->addRepresentation($vs_directory.'/'.$f, $vn_object_representation_type_id, $vn_object_representation_locale_id, $vs_object_representation_status, $vs_object_representation_access, false, array(), array('original_filename' => $f));
 				
@@ -191,7 +192,7 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 						$t_object->set('locale_id', $vn_object_locale_id);
 						$t_object->set('status', $vs_object_status);
 						$t_object->set('access', $vs_object_access);
-						print "got $vs_object_idno_option/$f<Br>";
+						
 						if ($vs_object_idno_option === 'use_filename_as_identifier') {
 							// use the filename as identifier
 							$t_object->set('idno', $vs_idno ? $vs_idno : $f);
@@ -230,7 +231,6 @@ require_once(__CA_MODELS_DIR__.'/ca_users.php');
 							$o_trans->rollback();
 							continue;
 						}
-						
 						$t_object->addRepresentation($vs_directory.'/'.$f, $vn_object_representation_type_id, $vn_object_representation_locale_id, $vs_object_representation_status, $vs_object_representation_access, true, array(), array('original_filename' => $f));
 				
 						if ($t_object->numErrors()) {	

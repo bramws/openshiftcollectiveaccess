@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2007-2011 Whirl-i-Gig
+ * Copyright 2007-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -53,6 +53,11 @@
  	define('__CA_NAV_BUTTON_DEL_BUNDLE__', 14);
  	define('__CA_NAV_BUTTON_CLOSE__', 15);
  	define('__CA_NAV_BUTTON_ADD_LARGE__', 16);
+ 	define('__CA_NAV_BUTTON_ZOOM_IN__', 17);
+ 	define('__CA_NAV_BUTTON_ZOOM_OUT__', 18);
+ 	define('__CA_NAV_BUTTON_MAGNIFY__', 19);
+ 	define('__CA_NAV_BUTTON_OVERVIEW__', 20);
+ 	define('__CA_NAV_BUTTON_PAN__', 21);
  	
  	
  	define('__CA_NAV_BUTTON_ICON_POS_LEFT__', 0);
@@ -81,7 +86,10 @@
 			$vn_i = 0;
 			foreach($pa_other_params as $vs_name => $vs_value) {
 				if (in_array($vs_name, array('module', 'controller', 'action'))) { continue; }
-				//$vs_url .= ($vn_i == 0) ? '?' : '&';
+				if (is_array($vs_value)) { // is the value is array we need to serialize is... just treat it as a list of values which *should* be what it is.
+					$vs_value = join(";", $vs_value);
+				}
+				
 				$vs_url .= '/'.$vs_name."/".urlencode($vs_value);
 				
 				$vn_i++;
@@ -309,18 +317,25 @@
 	 *		no_background = 
 	 *		dont_show_content = 
 	 *		graphicsPath =
+	 *		preventDuplicateSubmits = default is false
 	 */
 	function caFormSubmitButton($po_request, $pn_type, $ps_content, $ps_id, $pa_options=null) {
 		$ps_icon_pos = isset($pa_options['icon_position']) ? $pa_options['icon_position'] : __CA_NAV_BUTTON_ICON_POS_LEFT__;
 		$ps_use_classname = isset($pa_options['use_class']) ? $pa_options['use_class'] : '';
 		$pb_no_background = (isset($pa_options['no_background']) && $pa_options['no_background']) ? true : false;
 		$pb_dont_show_content = (isset($pa_options['dont_show_content']) && $pa_options['dont_show_content']) ? true : false;
+		$pb_prevent_duplicate_submits = (isset($pa_options['preventDuplicateSubmits']) && $pa_options['preventDuplicateSubmits']) ? true : false;
 		
 		$vs_graphics_path = (isset($pa_options['graphicsPath']) && $pa_options['graphicsPath']) ? $pa_options['graphicsPath'] : $po_request->getThemeUrlPath()."/graphics";
 		
 		$vs_classname = (!$pb_no_background) ? 'form-button' : '';
 		
-		$vs_button = "<a href='#' onclick='jQuery(\"#{$ps_id}\").submit();' class='{$vs_classname}'>";
+		if ($pb_prevent_duplicate_submits) {
+			$vs_button = "<a href='#' onclick='jQuery(\".caSubmit{$ps_id}\").fadeTo(\"fast\", 0.5).attr(\"onclick\", null); jQuery(\"#{$ps_id}\").submit();' class='{$vs_classname} caSubmit{$ps_id}'>";
+		} else {
+			$vs_button = "<a href='#' onclick='jQuery(\"#{$ps_id}\").submit();' class='{$vs_classname}'>";		
+		}
+		
 		if (!$pb_no_background) { 
 			$vs_button .= "<span class='form-button'>"; 
 			$vn_padding = ($ps_content) ? 10 : 0;
@@ -347,7 +362,7 @@
 		// form when the return key is hit within a text field
 		// We don't actually display this button or use it to submit the form; the form-button output above does that.
 		// Rather, this <input> tag is only included to force browsers to support submit-on-return-key
-		$vs_button .= "<div style='position: absolute; top: 0px; left:-500px;'><input type='submit'/></div>";
+		$vs_button .= "<div style='position: absolute; top: 0px; left:-5000px;'><input type='submit'/></div>";
 		
 		return $vs_button;
 	}
@@ -500,6 +515,21 @@
 			case __CA_NAV_BUTTON_ADD_LARGE__:
 				$vs_img_name = 'add';
 				break;	
+			case __CA_NAV_BUTTON_ZOOM_IN__:
+				$vs_img_name = 'zoom_in';
+				break;
+			case __CA_NAV_BUTTON_ZOOM_OUT__:
+				$vs_img_name = 'zoom_out';
+				break;
+			case __CA_NAV_BUTTON_MAGNIFY__:
+				$vs_img_name = 'magnify';
+				break;
+			case __CA_NAV_BUTTON_OVERVIEW__:
+				$vs_img_name = 'overview';
+				break;
+			case __CA_NAV_BUTTON_PAN__:
+				$vs_img_name = 'pan';
+				break;
 			default:
 				$vs_img_name = '';
 				break;
@@ -564,19 +594,6 @@
 		$vs_table = $ps_table;
 		if ($vs_table == 'ca_list_items') { $vs_table = 'ca_lists'; }
 		
-		switch($vs_table) {
-			case 'ca_relationship_types':
-				$vs_action = isset($pa_options['action']) ? $pa_options['action'] : (($po_request->isLoggedIn() && $po_request->user->canDoAction('can_configure_relationship_types')) ? 'Edit' : 'Summary'); 
-				break;
-			default:
-				if (!ca_user_roles::isValidAction('can_edit_'.$vs_table)) {
-					$vs_action = 'Edit';
-				} else {
-					$vs_action = isset($pa_options['action']) ? $pa_options['action'] : (($po_request->isLoggedIn() && $po_request->user->canDoAction('can_edit_'.$vs_table)) ? 'Edit' : 'Summary'); 
-				}
-				break;
-		}
-		
 		switch($ps_table) {
 			case 'ca_objects':
 			case 57:
@@ -590,9 +607,9 @@
 				break;
 			case 'ca_object_events':
 			case 45:
-                $vs_module = 'editor/object_events';
-                $vs_controller = 'ObjectEventEditor';
-                break;
+				$vs_module = 'editor/object_events';
+				$vs_controller = 'ObjectEventEditor';
+				break;
 			case 'ca_entities':
 			case 20:
 				$vs_module = 'editor/entities';
@@ -685,6 +702,21 @@
 				break;
 			default:
 				return null;
+				break;
+		}
+		
+		switch($vs_table) {
+			case 'ca_relationship_types':
+				$vs_action = isset($pa_options['action']) ? $pa_options['action'] : (($po_request->isLoggedIn() && $po_request->user->canDoAction('can_configure_relationship_types')) ? 'Edit' : 'Summary'); 
+				break;
+			default:
+				if(isset($pa_options['action'])){
+					$vs_action = $pa_options['action'];
+				} else if($po_request->isLoggedIn() && $po_request->user->canAccess($vs_module,$vs_controller,"Edit",array($vs_pk => $pn_id))) {
+					$vs_action = 'Edit';
+				} else {
+					$vs_action = 'Summary';
+				}
 				break;
 		}
 		

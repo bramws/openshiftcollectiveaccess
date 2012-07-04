@@ -7,7 +7,7 @@
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2007-2011 Whirl-i-Gig
+ * Copyright 2007-2012 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -38,6 +38,7 @@ require_once(__CA_LIB_DIR__."/core/Search/SearchCache.php");
 require_once(__CA_LIB_DIR__."/core/Logging/Searchlog.php");
 require_once(__CA_LIB_DIR__."/core/Utils/Timer.php");
 require_once(__CA_MODELS_DIR__.'/ca_lists.php');
+require_once(__CA_APP_DIR__.'/helpers/accessHelpers.php');
 
 require_once(__CA_LIB_DIR__."/core/Search/Common/Parsers/LuceneSyntaxParser.php");
 require_once(__CA_LIB_DIR__."/core/Zend/Search/Lucene/Search/Query.php");
@@ -128,6 +129,18 @@ class SearchEngine extends SearchBase {
 		// plugin just uses the string as-is... other plugins my choose to parse it however they wish to.
 		//
 		
+		//
+		// Process suffixes list... if search conforms to regex then we append a suffix.
+		// This is useful, for example, to allow auto-wildcarding of accession numbers: if the search looks like an accession regex-wise we can append a "*"
+		//
+		$va_suffixes = $this->opo_search_config->getAssoc('search_suffixes');
+		if (is_array($va_suffixes) && sizeof($va_suffixes)) {
+			foreach($va_suffixes as $vs_preg => $vs_suffix) {
+				if (preg_match("!{$vs_preg}!", $ps_search)) {
+					$ps_search = preg_replace("!({$vs_preg})[\*]*!", "$1{$vs_suffix}", $ps_search);
+				}
+			}
+		}
 		
 		$vb_no_cache = isset($pa_options['no_cache']) ? $pa_options['no_cache'] : false;
 		unset($pa_options['no_cache']);
@@ -416,7 +429,7 @@ class SearchEngine extends SearchBase {
 	 * @param $pa_hits Array of row_ids to sort. *MUST HAVE row_ids AS KEYS, NOT VALUES*
 	 */
 	public function sortHits(&$pa_hits, $ps_field, $ps_direction='asc') {
-			if (!in_array($ps_direction, array('asc', 'desc'))) { $ps_direction = 'asc'; }
+			if (!in_array(strtolower($ps_direction), array('asc', 'desc'))) { $ps_direction = 'asc'; }
 			if (!is_array($pa_hits) || !sizeof($pa_hits)) { return $pa_hits; }
 				
 			$t_table = $this->opo_datamodel->getInstanceByTableNum($this->opn_tablenum, true);
@@ -465,8 +478,9 @@ class SearchEngine extends SearchBase {
 								unset($pa_hits[$vn_id]);
 							}
 							
-							foreach($pa_hits as $vn_id => $va_item) {
-								$va_sorted_hits[$vn_id] = $va_item;
+							foreach($pa_hits as $vn_id => $va_row) {
+								if(!is_array($va_row)) { $va_row = array(); }
+								$va_sorted_hits[$vn_id][1] = $va_row;
 							}
 							
 							$va_sorted_hits = caExtractValuesByUserLocale($va_sorted_hits);
@@ -491,7 +505,7 @@ class SearchEngine extends SearchBase {
 							$vs_locale_where = ", ".$vs_table_name.".locale_id";
 						}
 						
-						$vs_sortable_value = $vs_field;
+						$vs_sortable_value_fld = $vs_field;
 					}
 				} else {
 					// sort field is in related table
@@ -503,9 +517,7 @@ class SearchEngine extends SearchBase {
 						// generate related joins
 						foreach($va_path as $vs_table => $va_info) {
 							$t_table = $this->opo_datamodel->getInstanceByTableName($vs_table, true);
-							if (!$vs_last_table) {
-								//$va_joins[$vs_table] = "INNER JOIN ".$vs_table." ON ".$vs_table.".".$t_table->primaryKey()." = ca_sql_search_search_final.row_id";
-							} else {
+							if ($vs_last_table) {
 								$va_rels = $this->opo_datamodel->getOneToManyRelations($vs_last_table, $vs_table);
 								if (!sizeof($va_rels)) {
 									$va_rels = $this->opo_datamodel->getOneToManyRelations($vs_table, $vs_last_table);
@@ -521,7 +533,7 @@ class SearchEngine extends SearchBase {
 						}
 						$va_orderbys[] = $vs_field.' '.$ps_direction;
 						
-						$vs_sortable_value = $vs_field;
+						$vs_sortable_value_fld = $vs_field;
 					} else {
 						$va_rels = $this->opo_datamodel->getRelationships($vs_table_name, $va_tmp[0]);
 						if (!$va_rels) { return $pa_hits; }							// return hits unsorted if field is not valid
@@ -538,14 +550,14 @@ class SearchEngine extends SearchBase {
 							$vs_locale_where = ", ".$va_tmp[0].".locale_id";
 						}
 						
-						$vs_sortable_value = $vs_field;
+						$vs_sortable_value_fld = $vs_field;
 					}
 				}
 			}
 			$vs_join_sql = join("\n", $va_joins);
 			
 			$vs_sql = "
-				SELECT {$vs_table_name}.{$vs_table_pk}{$vs_locale_where}, {$vs_sortable_value}
+				SELECT {$vs_table_name}.{$vs_table_pk}{$vs_locale_where}, {$vs_sortable_value_fld}
 				FROM {$vs_table_name}
 				{$vs_join_sql}
 				WHERE
@@ -556,10 +568,13 @@ class SearchEngine extends SearchBase {
 			$qr_sort = $this->opo_db->query($vs_sql);
 			$va_sorted_hits = array();
 			while($qr_sort->nextRow()) {
+				if (!($vs_sortable_value = mb_strtolower($qr_sort->get($vs_sortable_value_fld)))) {
+					$vs_sortable_value = ' ';
+				}
 				if ($vs_locale_where) {
-					$va_sorted_hits[$qr_sort->get($vs_table_pk, array('binary' => true))][$qr_sort->get('locale_id', array('binary' => true))] = $qr_sort->get($vs_sortable_value);
+					$va_sorted_hits[$qr_sort->get($vs_table_pk, array('binary' => true))][$qr_sort->get('locale_id', array('binary' => true))] = $vs_sortable_value;
 				} else {
-					$va_sorted_hits[$qr_sort->get($vs_table_pk, array('binary' => true))] = $qr_sort->get($vs_sortable_value);
+					$va_sorted_hits[$qr_sort->get($vs_table_pk, array('binary' => true))] = $vs_sortable_value;
 				}
 			}
 			if ($vs_locale_where) { 
@@ -986,6 +1001,22 @@ class SearchEngine extends SearchBase {
 	 * @return array List of type_id values to restrict search to.
 	 */
 	public function getTypeRestrictionList() {
+		if (function_exists("caGetTypeRestrictionsForUser")) {
+			$va_pervasive_types = caGetTypeRestrictionsForUser($this->ops_tablename);	// restrictions set in app.conf or by associated user role
+			if (!is_array($va_pervasive_types) || !sizeof($va_pervasive_types)) { return $this->opa_search_type_ids; }
+				
+			if (is_array($this->opa_search_type_ids) && sizeof($this->opa_search_type_ids)) {
+				$va_filtered_types = array();
+				foreach($this->opa_search_type_ids as $vn_id) {
+					if (in_array($vn_id, $va_pervasive_types)) {
+						$va_filtered_types[] = $vn_id;
+					}
+				}
+				return $va_filtered_types;
+			} else {
+				return $va_pervasive_types;
+			}
+		}
 		return $this->opa_search_type_ids;
 	}
 	# ------------------------------------------------------
@@ -1060,8 +1091,9 @@ class SearchEngine extends SearchBase {
 		if (!@require_once(__CA_LIB_DIR__.'/core/Plugins/SearchEngine/'.$ps_plugin_name.'.php')) { return null; }
 		$ps_classname = 'WLPlugSearchEngine'.$ps_plugin_name;
 		if (!($o_engine =  new $ps_classname)) { return null; }
-		
+	
 		$va_ids = array_keys($o_engine->quickSearch($pn_tablenum, $ps_search, $pa_options));
+		
 		if (!is_array($va_ids) || !sizeof($va_ids)) { return array(); }
 		$t_instance = $o_dm->getInstanceByTableNum($pn_tablenum, true);
 		
@@ -1075,8 +1107,8 @@ class SearchEngine extends SearchBase {
 		}
 		
 		$vs_check_access_sql = '';
-		if (isset($pa_options['checkAccess']) && !is_null($pa_options['checkAccess']) && $t_instance->hasField('access')) {
-			$vs_check_access_sql = ' AND (n.access = '.intval($pa_options['checkAccess']).')';
+		if (isset($pa_options['checkAccess']) && is_array($pa_options['checkAccess']) && sizeof($pa_options['checkAccess']) && $t_instance->hasField('access')) {
+			$vs_check_access_sql = ' AND (n.access IN ('.join(", ", $pa_options['checkAccess']).'))';
 		}
 		
 		$vs_limit_sql = '';
@@ -1084,6 +1116,11 @@ class SearchEngine extends SearchBase {
 			$vs_limit_sql = ' LIMIT '.intval($pa_options['limit']);
 		}
 		
+		$vs_type_restriction_sql = '';
+		$va_types = caGetTypeRestrictionsForUser($ps_tablename);
+		if (is_array($va_types) && sizeof($va_types)) {
+			$vs_type_restriction_sql = ' AND n.type_id IN ('.join(',', $va_types).')';
+		}
 		
 		$o_db = new Db();
 		$qr_res = $o_db->query("
@@ -1094,9 +1131,9 @@ class SearchEngine extends SearchBase {
 				l.".$vs_pk." IN (".join(',', $va_ids).")
 				{$vs_is_preferred_sql}
 				{$vs_check_access_sql}
+				{$vs_type_restriction_sql}
 			{$vs_limit_sql}
 		");
-		
 		$va_hits = array();
 		while($qr_res->nextRow()) {
 			$va_hits[$qr_res->get($vs_pk)][$qr_res->get('locale_id')] = array(
