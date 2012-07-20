@@ -1,5 +1,143 @@
 #!/bin/bash
-# This is a simple script and will be executed on your CI system if 
+# This is a simple script and will be executed on your CI system if
 # available.  Otherwise it will execute while your application is stopped
 # before the build step.  This script gets executed directly, so it
-# could be python, php, ruby, etc.
+# could be python, php, ruby, etc
+
+. "${OPENSHIFT_REPO_DIR}.openshift/config"
+
+MAJOR_VERSION=`echo "$FFMPEG_VERSION" | sed 's/\.[0-9]*\(-.*\|\)$//g'`
+FAAC_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/$FAAC_VERSION"
+FAAD2_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/$FAAD2_VERSION"
+LAME_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/$LAME_VERSION"
+LIBX_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/$LIBX_VERSION"
+FFMPEG_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/$FFMPEG_VERSION"
+
+cd $OPENSHIFT_DATA_DIR
+
+if [[ -d $FAAC_PATH ]]; then
+        echo "faac $FAAC_VERSION is installed."
+else
+
+        echo "Cleaning old faac."
+        for version in ffmpeg/faac-*; do
+                echo "Removing $version"
+                rm -rf $FAAC_VERSION
+        done
+
+        echo "Downloading faac $FAAC_VERSION"
+        curl -o faac.tar.gz "http://downloads.sourceforge.net/faac/faac-1.28.tar.gz"
+        tar -xf faac.tar.gz
+        rm faac.tar.gz
+
+        echo "Compiling faac $VERSION"
+        cd faac-$FAAC_VERSION
+        ./configure --prefix=$FAAC_PATH
+        make
+        make install
+        cd ..
+        rm -rf faac-$FAAC_VERSION
+fi
+
+if [[ -d $FAAD2_PATH ]]; then
+        echo "faad2 $VERSION is installed."
+else
+
+        echo "Cleaning old faad2."
+        for version in ffmpeg/faad2-*; do
+                echo "Removing $FAAD2_VERSION"
+                rm -rf $FAAD2_VERSION
+        done
+
+        echo "Downloading faad2 $FAAD2_VERSION"
+        curl -o faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
+        tar -xf faad2.tar.gz
+        rm faad2.tar.gz
+
+        echo "Compiling faad2 $FAAD2_VERSION"
+        cd faad2-$FAAD2_VERSION
+        ./configure --prefix=$FAAD2_PATH
+        make
+        make install
+        cd ..
+        rm -rf faad2-$FAAD2_VERSION
+fi
+
+if [[ -d $LAME_PATH ]]; then
+        echo "lame $LAME_VERSION is installed."
+else
+
+        echo "Cleaning old lame."
+        for version in ffmpeg/lame-*; do
+                echo "Removing $LAME_VERSION"
+                rm -rf $LAME_VERSION
+        done
+
+        echo "Downloading lame $LAME_VERSION"
+        curl -o lame.tar.gz "http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download"
+        tar -xf lame.tar.gz
+        rm lame.tar.gz
+
+        echo "Compiling lame $LAME_VERSION"
+        echo "Compiling lame $LAME_VERSION"
+        cd lame-$LAME_VERSION
+        ./configure --prefix=$LAME_PATH
+        make install
+        cd ..
+        rm -rf lame-$LAME_VERSION
+fi
+
+
+
+if [[ -d $LIBX_PATH ]]; then
+        echo "libx $LIBX_VERSION is installed."
+else
+
+        echo "Cleaning old libx."
+        for version in ffmpeg/libx-*; do
+                echo "Removing $LIBX_VERSION"
+                rm -rf $LIBX_VERSION
+        done
+
+        echo "Downloading libx $LIBX_VERSION"
+        curl -o libx.tar.bz2 "ftp://ftp.videolan.org/pub/videolan/x264/snapshots/last_stable_x264.tar.bz2"
+        tar -xf libx.tar.bz2
+        rm libx.tar.bz2
+
+        echo "Compiling libx $LIBX_VERSION"
+        cd libx-$LIBX_VERSION
+        ./configure --prefix=$LIBX_PATH
+        make
+        make install
+        cd ..
+        rm -rf libx-$LIBX_VERSION
+fi
+
+
+
+
+
+if [[ -d $FFMPEG_PATH ]]; then
+        echo "ffmpeg $FFMPEG_VERSION is installed."
+else
+
+        echo "Cleaning old ffmpeg."
+        for version in ffmpeg/ffmpeg-*; do
+                echo "Removing $FFMPEG_VERSION"
+                rm -rf $FFMPEG_VERSIONn
+        done
+
+        echo "Downloading FFmpeg $FFMPEG_VERSION"
+        curl -o ffmpeg.tar.gz "http://ffmpeg.org/releases/ffmpeg-0.11.1.tar.gz"
+        tar -xf ffmpeg.tar.gz
+        rm ffmpeg.tar.gz
+
+        echo "Compiling FFmpeg $FFMPEG_VERSION"
+        cd ffmpeg-$VERSION
+        ./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libfaad  --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl  --enable-nonfree
+        make
+        make install
+        cd ..
+        rm -rf ffmpeg-$FFMPEG_VERSION
+fi
+
