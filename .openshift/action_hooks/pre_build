@@ -6,7 +6,6 @@
 
 . "${OPENSHIFT_REPO_DIR}.openshift/config"
 
-MAJOR_VERSION=`echo "$FFMPEG_VERSION" | sed 's/\.[0-9]*\(-.*\|\)$//g'`
 FAAC_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/faac-$FAAC_VERSION"
 FAAD2_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/faad2-$FAAD2_VERSION"
 LAME_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/lame-$LAME_VERSION"
