@@ -135,7 +135,7 @@ else
         echo "Compiling FFmpeg $FFMPEG_VERSION"
         cd ffmpeg-$FFMPEG_VERSION
         #./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libfaad --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl --enable-nonfree
-        ./configure --prefix=$FFMPEG_PATH --disable-yasm --enable-pthreads --enable-gpl  --enable-nonfree
+        ./configure --prefix=$FFMPEG_PATH --disable-yasm --enable-pthreads --enable-gpl --enable-nonfree
         make
         make install
         cd ..
