@@ -106,7 +106,7 @@ else
 
         echo "Compiling libx $LIBX_VERSION"
         cd x264-snapshot-$LIBX_VERSION-stable
-        ./configure --prefix=$LIBX_PATH
+        ./configure --prefix=$LIBX_PATH --disable-asm
         make
         make install
         cd ..
