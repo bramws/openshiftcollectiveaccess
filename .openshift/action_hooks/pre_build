@@ -124,7 +124,7 @@ else
         echo "Cleaning old ffmpeg."
         for version in ffmpeg/ffmpeg-*; do
                 echo "Removing $FFMPEG_VERSION"
-                rm -rf $FFMPEG_VERSIONn
+                rm -rf $FFMPEG_VERSION
         done
 
         echo "Downloading FFmpeg $FFMPEG_VERSION"
@@ -133,7 +133,7 @@ else
         rm ffmpeg.tar.gz
 
         echo "Compiling FFmpeg $FFMPEG_VERSION"
-        cd ffmpeg-$VERSION
+        cd ffmpeg-$FFMPEG_VERSION
         ./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libfaad  --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl  --enable-nonfree
         make
         make install
