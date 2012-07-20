@@ -26,7 +26,7 @@ else
         done
 
         echo "Downloading faac $FAAC_VERSION"
-        curl -o faac.tar.gz "http://downloads.sourceforge.net/faac/faac-1.28.tar.gz"
+        wget -O faac.tar.gz "http://downloads.sourceforge.net/faac/faac-1.28.tar.gz"
         tar -xf faac.tar.gz
         rm faac.tar.gz
 
@@ -50,7 +50,7 @@ else
         done
 
         echo "Downloading faad2 $FAAD2_VERSION"
-        curl -o faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
+        wget-O faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
         tar -xf faad2.tar.gz
         rm faad2.tar.gz
 
@@ -74,7 +74,7 @@ else
         done
 
         echo "Downloading lame $LAME_VERSION"
-        curl -o lame.tar.gz "http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download"
+        wget -O lame.tar.gz "http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download"
         tar -xf lame.tar.gz
         rm lame.tar.gz
 
@@ -100,8 +100,8 @@ else
         done
 
         echo "Downloading libx $LIBX_VERSION"
-        curl -o libx.tar.bz2 "ftp://ftp.videolan.org/pub/videolan/x264/snapshots/last_stable_x264.tar.bz2"
-        tar -xf libx.tar.bz2
+        wget -O libx.tar.bz2 "ftp://ftp.videolan.org/pub/videolan/x264/snapshots/last_stable_x264.tar.bz2"
+        tar -xvjf libx.tar.bz2
         rm libx.tar.bz2
 
         echo "Compiling libx $LIBX_VERSION"
@@ -128,7 +128,7 @@ else
         done
 
         echo "Downloading FFmpeg $FFMPEG_VERSION"
-        curl -o ffmpeg.tar.gz "http://ffmpeg.org/releases/ffmpeg-0.11.1.tar.gz"
+        wget -O ffmpeg.tar.gz "http://ffmpeg.org/releases/ffmpeg-0.11.1.tar.gz"
         tar -xf ffmpeg.tar.gz
         rm ffmpeg.tar.gz
 
