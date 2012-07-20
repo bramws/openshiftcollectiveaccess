@@ -100,7 +100,7 @@ else
         done
 
         echo "Downloading libx $LIBX_VERSION"
-        wget -O libx.tar.bz2 "ftp://ftp.videolan.org/pub/videolan/x264/snapshots/last_stable_x264.tar.bz2"
+        wget -O libx.tar.bz2 "ftp://ftp.videolan.org/pub/videolan/x264/snapshots/x264-snapshot-20120719-2245-stable.tar.bz2"
         tar -xvjf libx.tar.bz2
         rm libx.tar.bz2
 
