@@ -50,7 +50,7 @@ else
         done
 
         echo "Downloading faad2 $FAAD2_VERSION"
-        wget-O faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
+        wget -O faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
         tar -xf faad2.tar.gz
         rm faad2.tar.gz
 
@@ -105,7 +105,7 @@ else
         rm libx.tar.bz2
 
         echo "Compiling libx $LIBX_VERSION"
-        cd libx-$LIBX_VERSION
+        cd x264-snapshot-$LIBX_VERSION-stable
         ./configure --prefix=$LIBX_PATH
         make
         make install
