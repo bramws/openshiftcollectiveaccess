@@ -7,7 +7,6 @@
 . "${OPENSHIFT_REPO_DIR}.openshift/config"
 
 FAAC_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/faac-$FAAC_VERSION"
-FAAD2_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/faad2-$FAAD2_VERSION"
 LAME_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/lame-$LAME_VERSION"
 LIBX_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/libx-$LIBX_VERSION"
 FFMPEG_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/ffmpeg-$FFMPEG_VERSION"
@@ -36,30 +35,6 @@ else
         make install
         cd ..
         rm -rf faac-$FAAC_VERSION
-fi
-
-if [[ -d $FAAD2_PATH ]]; then
-        echo "faad2 $VERSION is installed."
-else
-
-        echo "Cleaning old faad2."
-        for version in ffmpeg/faad2-*; do
-                echo "Removing $FAAD2_VERSION"
-                rm -rf $FAAD2_VERSION
-        done
-
-        echo "Downloading faad2 $FAAD2_VERSION"
-        wget -O faad2.tar.gz "http://downloads.sourceforge.net/faac/faad2-2.7.tar.gz"
-        tar -xf faad2.tar.gz
-        rm faad2.tar.gz
-
-        echo "Compiling faad2 $FAAD2_VERSION"
-        cd faad2-$FAAD2_VERSION
-        ./configure --prefix=$FAAD2_PATH
-        make
-        make install
-        cd ..
-        rm -rf faad2-$FAAD2_VERSION
 fi
 
 if [[ -d $LAME_PATH ]]; then
@@ -132,8 +107,7 @@ else
 
         echo "Compiling FFmpeg $FFMPEG_VERSION"
         cd ffmpeg-$FFMPEG_VERSION
-        #./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libfaad --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl --enable-nonfree
-        ./configure --prefix=$FFMPEG_PATH --disable-yasm --enable-pthreads --enable-gpl  --enable-nonfree
+        ./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl --disable-yasm --enable-nonfree
         make
         make install
         cd ..
