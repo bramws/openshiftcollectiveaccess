@@ -115,7 +115,6 @@ fi
 
 
 
-
 if [[ -d $FFMPEG_PATH ]]; then
         echo "ffmpeg $FFMPEG_VERSION is installed."
 else
@@ -127,17 +126,18 @@ else
         done
 
         echo "Downloading FFmpeg $FFMPEG_VERSION"
-        wget -O ffmpeg.tar.gz "http://ffmpeg.org/releases/ffmpeg-0.11.1.tar.gz"
+        wget -O ffmpeg.tar.gz "http://www.ffmpeg.org/releases/ffmpeg-0.11.1.tar.gz"
         tar -xf ffmpeg.tar.gz
         rm ffmpeg.tar.gz
 
         echo "Compiling FFmpeg $FFMPEG_VERSION"
         cd ffmpeg-$FFMPEG_VERSION
         #./configure --prefix=$FFMPEG_PATH --enable-libfaac --enable-libfaad --enable-libx264 --enable-libmp3lame --enable-pthreads --enable-gpl --enable-nonfree
-        ./configure --prefix=$FFMPEG_PATH --disable-yasm --enable-pthreads --enable-gpl --enable-nonfree
+        ./configure --prefix=$FFMPEG_PATH --disable-yasm --enable-pthreads --enable-gpl  --enable-nonfree
         make
         make install
         cd ..
         rm -rf ffmpeg-$FFMPEG_VERSION
 fi
+
 
