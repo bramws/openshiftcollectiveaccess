@@ -109,7 +109,7 @@ else
         make
         make install
         cd ..
-        rm -rf x264-snapshot-libx-$LIBX_VERSION-stable
+        rm -rf x264-snapshot-$LIBX_VERSION-stable
 fi
 
 
