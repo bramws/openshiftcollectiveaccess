@@ -2,6 +2,9 @@
 $basedir = $_SERVER['DOCUMENT_ROOT'];
 $hostname = $_SERVER['HTTP_HOST'];
 $importdir = substr($basedir, 0, -9);
+$datadir = $OPENSHIFT_DATA_DIR
+print ("DATA_DIR : ");
+print $datadir;
 print ("Document ROOT : ");
 print $basedir;
 print ("<br>");
