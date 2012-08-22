@@ -11,7 +11,7 @@ INSTALLATION
 ============
 
 1) rhc-create-domain -n domain -l email
-2) rhc-create-app -a collectiveaccess -t php-5.3 -l email 
+2) rhc-create-app -s -a collectiveaccess -t php-5.3 -l email 
 3) cd collectiveaccess
 4) git remote add upstream -m master git://github.com/bramw/openshiftcollectiveaccess.git 
 5) git pull -s recursive -X theirs upstream master
