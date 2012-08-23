@@ -14,7 +14,8 @@
 # 			Enter the correct directory but omit trailing slashes!
 # 			For Windows hosts, use a notation similar to "C:/PATH/TO/COLLECTIVEACCESS"; do NOT use backslashes
 #
-define("__CA_BASE_DIR__", "/PATH/TO/COLLECTIVEACCESS");
+$base = getenv('OPENSHIFT_GEAR_DIR');
+define("__CA_BASE_DIR__", "$base");
 
 
 #
@@ -34,7 +35,8 @@ define("__CA_URL_ROOT__", "");
 #
 #		This must be the full host name. Do not include http:// or any other prefixes.
 #
-define("__CA_SITE_HOSTNAME__", "www.MyFirstCollectiveAccessSystem.org");
+$hostdns = getenv('OPENSHIFT_GEAR_DNS');
+define("__CA_SITE_HOSTNAME__", "$hostdns");
 
 
 # __CA_APP_NAME__ = a short name alphanumeric-only (no spaces or punctuation) name for this CollectiveAccess installation
@@ -57,16 +59,22 @@ define("__CA_APP_DISPLAY_NAME__", "My First CollectiveAccess System");
 # your system administrator or hosting provider.
 #
 # Database server host name (often 'localhost')
-define("__CA_DB_HOST__", 'localhost');
+$this->default['host']     = getenv("OPENSHIFT_DB_HOST");
+$this->default['port']     = getenv("OPENSHIFT_DB_PORT");
+$this->default['login']    = getenv("OPENSHIFT_DB_USERNAME");
+$this->default['password'] = getenv("OPENSHIFT_DB_PASSWORD");
+$this->default['database'] = getenv("OPENSHIFT_APP_NAME");
+
+define("__CA_DB_HOST__", 'host');
 
 # Database login user name
-define("__CA_DB_USER__", 'my_database_user');
+define("__CA_DB_USER__", 'login');
 
 # Database login password
-define("__CA_DB_PASSWORD__", 'my_database_password');
+define("__CA_DB_PASSWORD__", 'password');
 
 # The name of your CollectiveAccess database
-define("__CA_DB_DATABASE__", 'name_of_my_database');
+define("__CA_DB_DATABASE__", 'database');
 
 # Only MySQL databases are currently supported so leave this set to 'mysql'!
 define("__CA_DB_TYPE__", 'mysql');
