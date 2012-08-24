@@ -15,7 +15,7 @@
 # 			For Windows hosts, use a notation similar to "C:/PATH/TO/COLLECTIVEACCESS"; do NOT use backslashes
 #
 $base = getenv('OPENSHIFT_GEAR_DIR');
-define("__CA_BASE_DIR__", "$base");
+define("__CA_BASE_DIR__", "$base/php");
 
 
 #
