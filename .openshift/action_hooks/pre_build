@@ -12,7 +12,7 @@ LIBX_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/libx-$LIBX_VERSION"
 FFMPEG_PATH="${OPENSHIFT_DATA_DIR}ffmpeg/ffmpeg-$FFMPEG_VERSION"
 
 cd $OPENSHIFT_DATA_DIR
-
+/*
 if [[ -d $FAAC_PATH ]]; then
         echo "faac $FAAC_VERSION is installed."
 else
@@ -87,7 +87,7 @@ else
         rm -rf x264-snapshot-$LIBX_VERSION-stable
 fi
 
-
+*/
 
 
 if [[ -d $FFMPEG_PATH ]]; then
